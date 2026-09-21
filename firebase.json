@@ -7,13 +7,22 @@
       "**/node_modules/**",
       "test/**"
     ],
+    "_comment_headers": [
+      "Later rules win, so the order here matters.",
+      "The bare '/' needs its own rule: header globs match the REQUEST path,",
+      "and '/' does not match '**/*.html' even though index.html is what gets",
+      "served. Without it Firebase applies its default max-age=3600 and the",
+      "page is pinned to a stale build for an hour after every deploy.",
+      "words.txt and the icons are immutable for a year; if the lexicon ever",
+      "changes, rename the file rather than relying on clients to re-fetch."
+    ],
     "headers": [
       {
-        "source": "/sw.js",
+        "source": "**/*.@(txt|png)",
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache"
+            "value": "public, max-age=31536000, immutable"
           }
         ]
       },
@@ -27,11 +36,20 @@
         ]
       },
       {
-        "source": "**/*.@(txt|png)",
+        "source": "/",
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/sw.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
           }
         ]
       }
