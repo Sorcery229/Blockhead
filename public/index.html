@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Balda — word game</title>
+<meta name="description" content="A 5×5 word game: add one letter, trace a word through it. Play against the computer or pass and play.">
+<meta name="theme-color" content="#0d122b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Balda">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <div class="spinner" aria-hidden="true"></div>
+  <p>Loading dictionary…</p>
+</div>
+
+<main id="app" hidden>
+  <header class="topbar">
+    <h1>Balda <span id="build" class="build"></span></h1>
+    <button id="menuBtn" class="icon-btn" aria-label="Game menu" aria-haspopup="dialog">⋯</button>
+  </header>
+
+  <div class="statusrow">
+    <span id="turnLabel" class="turn">Your move</span>
+    <span id="timer" class="timer" hidden></span>
+  </div>
+
+  <div id="board" class="board" role="grid" aria-label="Game board"></div>
+
+  <section class="movebar">
+    <div class="wordline">
+      <span id="currentWord" class="word"></span>
+      <span id="wordPoints" class="points"></span>
+      <span id="hint" class="hint">Tap an empty square to add a letter</span>
+    </div>
+    <p id="error" class="error" role="alert" hidden></p>
+    <div class="actions">
+      <button id="confirmBtn" class="btn primary" disabled>Confirm word</button>
+    </div>
+  </section>
+
+  <section class="scores" id="scores"></section>
+</main>
+
+<dialog id="letterDialog" class="sheet">
+  <h2>Choose a letter</h2>
+  <div id="letterGrid" class="letters"></div>
+  <form method="dialog"><button class="btn wide">Cancel</button></form>
+</dialog>
+
+<dialog id="settingsDialog" class="sheet">
+  <h2>New game</h2>
+  <form id="settingsForm" method="dialog">
+    <label class="field">
+      <span>Opponent</span>
+      <select name="opponent">
+        <option value="ai">Computer</option>
+        <option value="human">Pass &amp; play</option>
+      </select>
+    </label>
+    <label class="field" id="difficultyField">
+      <span>Difficulty</span>
+      <select name="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Starting position</span>
+      <select name="startMode">
+        <option value="standard">One 5-letter word</option>
+        <option value="short">Short word (3 letters)</option>
+        <option value="twoWords">Two starting words</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Time per turn</span>
+      <select name="turnSeconds"></select>
+    </label>
+    <label class="field" id="policyField">
+      <span>If time runs out</span>
+      <select name="timeoutPolicy">
+        <option value="skipTurn">Turn is skipped</option>
+        <option value="loseGame">Player loses</option>
+      </select>
+    </label>
+    <p class="fine">One point per letter. A word can never be played twice, and
+      no square may be used twice in the same word.</p>
+    <menu class="row">
+      <button value="cancel" class="btn">Cancel</button>
+      <button value="start" class="btn primary">Start</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="menuDialog" class="sheet">
+  <h2>Game</h2>
+  <label class="field">
+    <span>Time per turn</span>
+    <select id="menuTime"></select>
+  </label>
+  <label class="field" id="menuPolicyField">
+    <span>If time runs out</span>
+    <select id="menuPolicy">
+      <option value="skipTurn">Turn is skipped</option>
+      <option value="loseGame">Player loses</option>
+    </select>
+  </label>
+  <p class="fine">Takes effect from the next turn.</p>
+  <button id="newGameBtn" class="btn wide">New game…</button>
+  <button id="reseedBtn" class="btn wide">Change starting word</button>
+  <button id="cantMoveBtn" class="btn wide danger">I can't move</button>
+  <form method="dialog"><button class="btn wide">Close</button></form>
+</dialog>
+
+<dialog id="overDialog" class="sheet">
+  <h2 id="overTitle"></h2>
+  <p id="overReason" class="fine"></p>
+  <p id="overScore" class="finalscore"></p>
+  <button id="overNewBtn" class="btn primary wide">New game</button>
+</dialog>
+
+<dialog id="wordDialog" class="sheet">
+  <h2 id="wordTitle"></h2>
+  <p id="wordMeta" class="fine"></p>
+  <a id="wordLookup" class="btn wide" target="_blank" rel="noopener">Look up definition ↗</a>
+  <form method="dialog"><button class="btn wide">Close</button></form>
+</dialog>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

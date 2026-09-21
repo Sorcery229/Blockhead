@@ -1,0 +1,211 @@
+:root {
+  --bg: #0d122b;
+  --bg-top: #1a2350;
+  --surface: #171d3c;
+  --surface-2: #1f2750;
+  --accent: #3c7aeb;
+  --accent-hi: #5e9bff;
+  --text: #eef1fb;
+  --muted: #9aa3c7;
+  --danger: #ff6b6b;
+  --radius: 14px;
+  --gap: 6px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* The `hidden` attribute is only `display: none` in the UA stylesheet, so ANY
+   author rule setting `display` silently defeats it — which is what kept the
+   loading overlay on screen over the board, swallowing taps. Every rule below
+   that sets `display` (.loading, .field, .topbar, …) needs this to win. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: linear-gradient(180deg, var(--bg-top), var(--bg) 60%) fixed;
+  color: var(--text);
+  font: 16px/1.4 ui-rounded, "SF Pro Rounded", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 8px 14px 28px;
+}
+
+/* --- loading ---------------------------------------------------------- */
+
+.loading {
+  position: fixed; inset: 0;
+  display: grid; place-content: center; justify-items: center; gap: 14px;
+  color: var(--muted);
+  /* This is a full-viewport fixed layer. If it ever fails to disappear it must
+     still not swallow taps meant for the board or the buttons underneath —
+     which is exactly what went wrong once already. */
+  pointer-events: none;
+}
+.spinner {
+  width: 34px; height: 34px;
+  border: 3px solid rgba(255,255,255,.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Shown only if boot() throws — better than a blank screen with no clue. */
+.fatal {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 99;
+  margin: 0; padding: 14px 16px;
+  background: #5a1620; color: #ffdde1;
+  font-size: 13px; line-height: 1.45;
+}
+
+/* --- chrome ----------------------------------------------------------- */
+
+.topbar { display: flex; align-items: center; justify-content: space-between; }
+h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
+/* Readable without Web Inspector, so "which build is the phone running?" is
+   never a guess. */
+.build { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+
+.icon-btn {
+  background: none; border: 0; color: var(--text);
+  font-size: 26px; line-height: 1; padding: 4px 10px; cursor: pointer;
+}
+
+.statusrow {
+  display: flex; justify-content: space-between; align-items: center;
+  min-height: 24px; margin-bottom: 8px; font-size: 14px;
+}
+.turn { font-weight: 600; }
+.turn.thinking { color: var(--muted); font-weight: 500; }
+.timer { color: var(--muted); font-variant-numeric: tabular-nums; }
+.timer.low { color: var(--danger); font-weight: 700; }
+
+/* --- board ------------------------------------------------------------ */
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--gap);
+  aspect-ratio: 1;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cell {
+  display: grid; place-content: center;
+  position: relative;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,.055);
+  border: 1.5px solid rgba(255,255,255,.07);
+  font-size: clamp(20px, 7vw, 34px);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text);
+  transition: background .12s ease, transform .12s ease;
+}
+.cell.empty { color: transparent; }
+.cell.playable { background: rgba(255,255,255,.03); border-style: dashed; }
+.cell.pending { background: rgba(60,122,235,.28); border-color: var(--accent); }
+.cell.inpath {
+  background: var(--accent);
+  border-color: var(--accent-hi);
+  color: #fff;
+  transform: scale(1.03);
+}
+.cell.highlight { border-color: #ffa63d; border-width: 3px; }
+
+.cell .order {
+  position: absolute; top: 3px; left: 6px;
+  font-size: 11px; font-weight: 800; color: rgba(255,255,255,.8);
+}
+
+/* --- move bar --------------------------------------------------------- */
+
+.movebar { margin: 14px 0 12px; }
+.wordline { display: flex; align-items: baseline; gap: 10px; min-height: 30px; }
+.word { font-size: 22px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; }
+.points { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: 13px; }
+.error { color: var(--danger); font-size: 13px; margin: 6px 0 0; }
+
+.actions { display: flex; gap: 10px; margin-top: 10px; }
+
+.btn {
+  flex: 1; padding: 12px 14px;
+  border-radius: 12px; border: 1px solid rgba(255,255,255,.12);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent-hi); }
+.btn.danger { color: var(--danger); }
+.btn.wide { width: 100%; margin-top: 8px; }
+
+/* --- scores ----------------------------------------------------------- */
+
+.scores { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.player {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1.5px solid transparent; padding: 10px;
+}
+.player.active { border-color: rgba(60,122,235,.65); }
+.player header {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 700; margin-bottom: 6px;
+}
+.player header .dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; }
+.player.active header .dot { background: var(--accent); }
+.player header .total { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.player ul { list-style: none; margin: 0; padding: 0; }
+.player li {
+  display: flex; justify-content: space-between; gap: 6px;
+  font-size: 13px; padding: 3px 0; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.player li .pts { color: var(--muted); font-variant-numeric: tabular-nums; }
+.player .none { color: rgba(255,255,255,.25); font-size: 13px; }
+
+/* --- dialogs ---------------------------------------------------------- */
+
+.sheet {
+  border: 0; border-radius: 18px; padding: 18px;
+  width: min(92vw, 420px);
+  background: var(--surface); color: var(--text);
+}
+.sheet::backdrop { background: rgba(0,0,0,.55); }
+.sheet h2 { margin: 0 0 12px; font-size: 18px; }
+.sheet .fine { color: var(--muted); font-size: 13px; }
+.finalscore { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 6px 0 14px; }
+
+.letters { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; }
+.letters button {
+  padding: 12px 0; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+.letters button:active { background: var(--accent); }
+
+.field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.field span { font-size: 14px; }
+.field select {
+  flex: 0 1 60%; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: var(--surface-2); color: var(--text); font: inherit;
+}
+
+menu.row { display: flex; gap: 10px; padding: 0; margin: 16px 0 0; }
+a.btn { display: block; text-align: center; text-decoration: none; }

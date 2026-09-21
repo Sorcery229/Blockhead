@@ -1,0 +1,47 @@
+name: Test and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Engine tests
+        run: node test/engine.test.mjs
+      - name: UI smoke test
+        run: node test/ui.smoke.mjs
+
+  deploy:
+    # Only runs once the FIREBASE_SERVICE_ACCOUNT_BLOCKHEAD_F8BE6 secret exists.
+    # See README for how to create it.
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BLOCKHEAD_F8BE6 }}
+          channelId: live
+          projectId: blockhead-f8be6
+
+# ---------------------------------------------------------------------------
+# This file is parked here because the token used to create the repository did
+# not have GitHub's `workflow` scope, which is required to write into
+# .github/workflows/. To activate CI, move it:
+#
+#     mkdir -p .github/workflows
+#     git mv deploy/firebase-hosting.yml .github/workflows/firebase-hosting.yml
+#     git commit -m "Enable CI" && git push
+#
+# or create the file through the GitHub web UI (Add file -> Create new file ->
+# name it .github/workflows/firebase-hosting.yml) and paste this content.
+# ---------------------------------------------------------------------------
