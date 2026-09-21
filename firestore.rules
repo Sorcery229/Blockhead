@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Anyone who knows a game id can read and write that game. There are no
+// accounts, so this is the only workable rule — treat a game link as the
+// only thing protecting a match. Nothing else in the project is reachable.
+//
+// The date is a dead man's switch: if this project is forgotten, the rules
+// stop allowing writes rather than staying open forever. Push the date out
+// when it expires.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /games/{gameId} {
+      allow read: if request.time < timestamp.date(2027, 9, 21);
+
+      // Writes must look exactly like a game document: our two fields and
+      // nothing else, with a bounded payload. This stops the collection being
+      // used as free general-purpose storage by anyone who finds the endpoint.
+      allow write: if request.time < timestamp.date(2027, 9, 21)
+                   && request.resource.data.keys().hasOnly(['state', 'seq'])
+                   && request.resource.data.state is string
+                   && request.resource.data.state.size() < 50000
+                   && request.resource.data.seq is int;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

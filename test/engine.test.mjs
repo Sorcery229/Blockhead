@@ -9,7 +9,7 @@ import {
   isConnectedPath, isPlayable, playableCells, wordAlong, isFull,
 } from '../public/js/board.js';
 import { search, bestMove, anyMoveExists } from '../public/js/movefinder.js';
-import { BaldaGame } from '../public/js/game.js';
+import { BlockheadGame } from '../public/js/game.js';
 
 // --- tiny harness -------------------------------------------------------
 
@@ -52,7 +52,7 @@ const dict = new WordDictionary(
 const fixture = () => placeWord(emptyGrid(), 'board', 2);
 
 function newGame() {
-  const g = new BaldaGame(dict, { opponent: 'human' });
+  const g = new BlockheadGame(dict, { opponent: 'human' });
   g.setPosition(fixture(), ['board']);
   return g;
 }
@@ -213,15 +213,22 @@ test('non-adjacent tap does not extend the path', () => {
   eq(g.selectedPath, [cell]);
 });
 
-test('tapping an earlier cell rewinds the path', () => {
+test('tapping a selected cell unselects it and everything after it', () => {
   const g = newGame();
   const cell = indexOf(1, 1);
   g.placeLetter('c', cell);
   g.toggleInPath(cell);
   g.toggleInPath(indexOf(2, 1));
   g.toggleInPath(indexOf(2, 0));
-  g.toggleInPath(cell);
+  eq(g.selectedPath.length, 3);
+
+  // Tapping the middle cell drops it and the one traced after it.
+  g.toggleInPath(indexOf(2, 1));
   eq(g.selectedPath, [cell]);
+
+  // Tapping the only remaining cell clears the path entirely.
+  g.toggleInPath(cell);
+  eq(g.selectedPath, []);
 });
 
 test('a word made only of existing letters is rejected', () => {
@@ -364,7 +371,7 @@ test('the new letter can sit in the middle of the word', () => {
   ok(middle.length > 0, 'expected words with the new letter in the middle');
 
   // S → N → O → B, with the new N second of four.
-  const game = new BaldaGame(dict, { opponent: 'human' });
+  const game = new BlockheadGame(dict, { opponent: 'human' });
   game.setPosition(g, ['board']);
   const cell = indexOf(1, 1);
   game.placeLetter('n', cell);
@@ -379,7 +386,7 @@ test('the new letter can sit in the middle of the word', () => {
 });
 
 test('a word ending with the new letter validates through the engine', () => {
-  const g = new BaldaGame(dict, { opponent: 'human' });
+  const g = new BlockheadGame(dict, { opponent: 'human' });
   g.setPosition(fixture(), ['board']);
   const cell = indexOf(1, 1);
   g.placeLetter('t', cell);
@@ -425,7 +432,7 @@ test('a full board has no moves', () => {
 // --- integration --------------------------------------------------------
 
 test('a hard-vs-hard game fills the board and terminates', () => {
-  const g = new BaldaGame(dict, { opponent: 'ai', difficulty: 'hard' });
+  const g = new BlockheadGame(dict, { opponent: 'ai', difficulty: 'hard' });
   g.setPosition(fixture(), ['board']);
   g.players[0].isComputer = true;
   g.players[1].isComputer = true;

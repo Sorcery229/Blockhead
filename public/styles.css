@@ -90,6 +90,23 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
 .timer { color: var(--muted); font-variant-numeric: tabular-nums; }
 .timer.low { color: var(--danger); font-weight: 700; }
 
+.onlinebar {
+  margin: 0 0 8px; padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(60,122,235,.16);
+  border: 1px solid rgba(60,122,235,.35);
+  font-size: 12.5px; color: var(--text);
+}
+.onlinebar.waiting { background: rgba(255,166,61,.14); border-color: rgba(255,166,61,.4); }
+.onlinebar.error { background: rgba(255,107,107,.14); border-color: rgba(255,107,107,.45); }
+
+.linkbox {
+  width: 100%; padding: 10px 12px; margin-bottom: 10px;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.14);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13px;
+}
+
 /* --- board ------------------------------------------------------------ */
 
 .board {

@@ -99,6 +99,38 @@ behaves normally. Deploy to Hosting for the full PWA.
 `BUILD` at the top of `js/main.js` when you change shipped files, and bump
 `CACHE` in `sw.js` too or an installed PWA will keep serving the old one.
 
+## Playing a friend
+
+Double-click **`Setup Multiplayer.command`** once. It creates a web app in the
+Firebase project if there isn't one, writes `public/js/firebase-config.js`,
+publishes `firestore.rules`, and redeploys. If the project has no Firestore
+database yet it stops and tells you where to create one.
+
+After that, ⋯ → **Play a friend** creates a game and gives you a link. Send it;
+your friend opens it and plays. Each device polls for the other's move while
+it's waiting, and stops polling on its own turn.
+
+How it works, and the trade-offs:
+
+- **No SDK, no Cloud Functions.** Functions need the paid Blaze plan. A game is
+  one Firestore document holding the whole state as a JSON string plus a
+  sequence number, read over the REST API. That keeps the document schema
+  independent of the game model — nothing server-side to migrate.
+- **Polling, not realtime listeners.** Two seconds, and only while waiting for
+  the opponent. About 400 reads per game against Spark's 50,000/day, so
+  roughly 125 games a day before the free tier notices.
+- **Turn integrity is client-side.** The rules restrict writes to `games/*`
+  with our two fields and a 50 kB cap, but they can't tell whose turn it is.
+  Anyone with the link could in principle write a move. For a game with a
+  friend that's the right trade; a real ranked mode would need Functions and
+  therefore Blaze.
+- **The link is the only protection.** No accounts, so treat a game link as a
+  shared secret. The rules also carry an expiry date — a dead man's switch so
+  a forgotten project doesn't stay open forever. Push it out when it lapses.
+
+If `firebase-config.js` is missing or empty, "Play a friend" simply stays
+hidden and everything else works normally.
+
 ## Tests
 
 Both suites run headless with no dependencies, under either JavaScriptCore

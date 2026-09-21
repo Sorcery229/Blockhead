@@ -17,6 +17,8 @@ jobs:
         run: node test/engine.test.mjs
       - name: UI smoke test
         run: node test/ui.smoke.mjs
+      - name: Online/serialisation tests
+        run: node test/online.test.mjs
 
   deploy:
     # Only runs once the FIREBASE_SERVICE_ACCOUNT_BLOCKHEAD_F8BE6 secret exists.

@@ -1,7 +1,8 @@
-const CACHE = 'balda-v5';
+const CACHE = 'blockhead-v6';
 const ASSETS = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/main.js', 'js/game.js', 'js/board.js', 'js/movefinder.js', 'js/dictionary.js',
+  'js/online.js', 'js/firebase-config.js',
   'words.txt', 'starters5.txt', 'starters3.txt',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];

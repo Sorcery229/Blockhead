@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Balda — word game</title>
+<title>Blockhead — word game</title>
 <meta name="description" content="A 5×5 word game: add one letter, trace a word through it. Play against the computer or pass and play.">
 <meta name="theme-color" content="#0d122b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Balda">
+<meta name="apple-mobile-web-app-title" content="Blockhead">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -23,7 +23,7 @@
 
 <main id="app" hidden>
   <header class="topbar">
-    <h1>Balda <span id="build" class="build"></span></h1>
+    <h1>Blockhead <span id="build" class="build"></span></h1>
     <button id="menuBtn" class="icon-btn" aria-label="Game menu" aria-haspopup="dialog">⋯</button>
   </header>
 
@@ -31,6 +31,7 @@
     <span id="turnLabel" class="turn">Your move</span>
     <span id="timer" class="timer" hidden></span>
   </div>
+  <p id="onlineBar" class="onlinebar" hidden></p>
 
   <div id="board" class="board" role="grid" aria-label="Game board"></div>
 
@@ -116,6 +117,7 @@
   </label>
   <p class="fine">Takes effect from the next turn.</p>
   <button id="newGameBtn" class="btn wide">New game…</button>
+  <button id="friendBtn" class="btn wide" hidden>Play a friend →</button>
   <button id="reseedBtn" class="btn wide">Change starting word</button>
   <button id="cantMoveBtn" class="btn wide danger">I can't move</button>
   <form method="dialog"><button class="btn wide">Close</button></form>
@@ -126,6 +128,16 @@
   <p id="overReason" class="fine"></p>
   <p id="overScore" class="finalscore"></p>
   <button id="overNewBtn" class="btn primary wide">New game</button>
+</dialog>
+
+<dialog id="shareDialog" class="sheet">
+  <h2>Invite a friend</h2>
+  <p class="fine">Send this link. They move first once they open it — you'll see
+    their word appear here automatically.</p>
+  <input id="shareLink" class="linkbox" readonly>
+  <button id="copyLinkBtn" class="btn primary wide">Copy link</button>
+  <button id="shareSheetBtn" class="btn wide" hidden>Share…</button>
+  <form method="dialog"><button class="btn wide">Done</button></form>
 </dialog>
 
 <dialog id="wordDialog" class="sheet">

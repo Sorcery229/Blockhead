@@ -169,6 +169,11 @@ check(!!declaredBuild, 'could not find BUILD in main.js');
 check(registry.get('build')?.textContent === `build ${declaredBuild}`,
   `header badge should read "build ${declaredBuild}", got "${registry.get('build')?.textContent}"`);
 
+// With no Firebase config present, online play must stay hidden rather than
+// offering a button that fails when tapped.
+check(registry.get('friendBtn')?.hidden === true,
+  'Play-a-friend should be hidden when firebase-config.js has no project');
+
 // Regression guard. `hidden` is only `display:none` in the UA stylesheet, so a
 // single author rule setting `display` defeats it everywhere. This shipped once
 // — the loading overlay stayed over the board and swallowed every tap.

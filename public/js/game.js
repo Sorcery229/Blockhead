@@ -19,7 +19,7 @@ export const TIMEOUT_POLICIES = {
   loseGame: 'Player loses the game',
 };
 
-export const TIME_OPTIONS = [null, 5, 10, 15, 30, 60, 120, 300];
+export const TIME_OPTIONS = [null, 10, 30, 60];
 
 export const DEFAULT_SETTINGS = {
   startMode: 'standard',
@@ -39,7 +39,7 @@ export const ERRORS = {
   notInDictionary: (w) => `"${w.toUpperCase()}" isn't in the dictionary.`,
 };
 
-export class BaldaGame {
+export class BlockheadGame {
   constructor(dict, settings = {}) {
     this.dict = dict;
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
@@ -193,7 +193,10 @@ export class BaldaGame {
 
     const at = this.selectedPath.indexOf(i);
     if (at !== -1) {
-      this.selectedPath = this.selectedPath.slice(0, at + 1);
+      // Tapping a cell that is already selected unselects it, and drops
+      // anything traced after it. Uniform with the new letter's own cycle:
+      // one tap selects, the next unselects.
+      this.selectedPath = this.selectedPath.slice(0, at);
       return;
     }
     const last = this.selectedPath[this.selectedPath.length - 1];
@@ -332,6 +335,59 @@ export class BaldaGame {
 
   anyMoveLeft() {
     return anyMoveExists(this.dict, this.grid, this.usedWords, this.settings.minimumWordLength);
+  }
+
+  // --- serialisation, for sharing a game between two devices -------------
+
+  /** Everything needed to reconstruct the game elsewhere. Deliberately plain
+   *  JSON: it travels as a single string field, so there is no schema to keep
+   *  in step on the server side. */
+  toJSON() {
+    return {
+      v: 1,
+      grid: this.grid.map((c) => c || '.').join(''),
+      used: [...this.usedWords],
+      startingWords: this.startingWords,
+      current: this.current,
+      status: this.status,
+      winner: this.winner,
+      endReason: this.endReason,
+      settings: {
+        startMode: this.settings.startMode,
+        turnSeconds: this.settings.turnSeconds,
+        timeoutPolicy: this.settings.timeoutPolicy,
+        minimumWordLength: this.settings.minimumWordLength,
+      },
+      players: this.players.map((p) => ({
+        name: p.name,
+        words: p.words.map((w) => ({
+          word: w.word, path: w.path, cell: w.cell,
+          letter: w.letter, player: w.player, points: w.points,
+        })),
+      })),
+    };
+  }
+
+  /** Replaces local state with a snapshot from the other device. */
+  loadFrom(data) {
+    if (!data || data.v !== 1) throw new Error('unrecognised game snapshot');
+    this.grid = data.grid.split('').map((c) => (c === '.' ? '' : c));
+    if (this.grid.length !== CELLS) throw new Error('bad grid length');
+    this.usedWords = new Set(data.used || []);
+    this.startingWords = data.startingWords || [];
+    this.current = data.current;
+    this.status = data.status;
+    this.winner = data.winner === undefined ? null : data.winner;
+    this.endReason = data.endReason || '';
+    this.settings = { ...this.settings, ...(data.settings || {}) };
+    this.players = (data.players || []).map((p) => ({
+      name: p.name,
+      isComputer: false,
+      words: (p.words || []).map((w) => ({ ...w })),
+    }));
+    this.history = this.players.flatMap((p) => p.words);
+    this.clearPending();
+    return this;
   }
 
   /** Test hook: install a fixed position. */

@@ -1,18 +1,34 @@
 import { WordDictionary } from './dictionary.js';
 import { CELLS } from './board.js';
-import { BaldaGame, TIME_OPTIONS, DEFAULT_SETTINGS } from './game.js';
+import { BlockheadGame, TIME_OPTIONS, DEFAULT_SETTINGS } from './game.js';
+import * as online from './online.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '7';
+const BUILD = '8';
 
 const $ = (id) => document.getElementById(id);
-const SETTINGS_KEY = 'balda.settings';
+const SETTINGS_KEY = 'blockhead.settings';
 
 let game = null;
 let clock = null;
 let secondsLeft = null;
 let thinking = false;
+
+/** Shared-game state. `role` is which player index this device controls. */
+const net = {
+  active: false,
+  id: null,
+  role: 0,
+  seq: 0,
+  poller: null,
+  error: null,
+  opponentJoined: false,
+};
+
+const roleKey = (id) => `blockhead.role.${id}`;
+/** True when this device is allowed to act right now. */
+const myTurn = () => !net.active || game.current === net.role;
 
 // --- boot ---------------------------------------------------------------
 
@@ -31,11 +47,11 @@ async function boot() {
 
   // Readable in Safari Web Inspector when debugging the phone over USB.
   globalThis.console?.info?.(
-    `Balda build ${BUILD}: ${dict.count} words — `
+    `Blockhead build ${BUILD}: ${dict.count} words — `
     + `fetch ${Math.round(tFetched - t0)} ms, parse ${Math.round(tParsed - tFetched)} ms`,
   );
 
-  game = new BaldaGame(dict, loadSettings());
+  game = new BlockheadGame(dict, loadSettings());
   buildBoard();
   buildLetterGrid();
   buildTimeOptions();
@@ -48,6 +64,15 @@ async function boot() {
   $('app').hidden = false;
   showBuild();
   render();
+
+  // Online play is optional: with no Firebase config the button stays hidden
+  // and everything else works exactly as before.
+  const configured = await online.loadConfig();
+  $('friendBtn').hidden = !configured;
+  const invited = /[#?]g=([a-z0-9]+)/i.exec(location.hash + location.search);
+  if (configured && invited) {
+    await joinSharedGame(invited[1]);
+  }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -73,10 +98,10 @@ function showBuild() {
 /** Last resort: put the failure on screen instead of leaving a blank page. */
 function fatal(err) {
   const message = (err && err.message) ? err.message : String(err);
-  globalThis.console?.error?.('Balda failed to start:', err);
+  globalThis.console?.error?.('Blockhead failed to start:', err);
   const box = document.createElement('div');
   box.className = 'fatal';
-  box.textContent = `Balda build ${BUILD} failed to start — ${message}`;
+  box.textContent = `Blockhead build ${BUILD} failed to start — ${message}`;
   document.body?.append(box);
   const loading = document.getElementById('loading');
   if (loading) loading.remove();
@@ -129,7 +154,7 @@ function attachPointer(board) {
   };
 
   board.addEventListener('pointerdown', (e) => {
-    if (thinking || game.status !== 'playing') return;
+    if (thinking || game.status !== 'playing' || !myTurn()) return;
     dragging = true;
     moved = false;
     startX = e.clientX;
@@ -276,12 +301,22 @@ function wireControls() {
     game.resign();
     stopClock();
     render();
+    if (net.active) pushSharedState();
   });
 
   $('settingsForm').addEventListener('change', syncSettingsVisibility);
 
   $('settingsDialog').addEventListener('close', () => {
     if ($('settingsDialog').returnValue !== 'start') return;
+    // Starting a local game ends any shared session.
+    if (net.active) {
+      net.poller?.dispose();
+      net.active = false;
+      net.id = null;
+      net.error = null;
+      setOnlineMessage('');
+      history.replaceState(null, '', location.pathname);
+    }
     const f = $('settingsForm').elements;
     game.reset({
       opponent: f.opponent.value,
@@ -317,11 +352,151 @@ function wireControls() {
   });
 
   $('confirmBtn').addEventListener('click', () => {
+    if (!myTurn()) return;
     if (!game.confirm()) { render(); return; }
     startClock();
     render();
-    maybeComputerTurn();
+    if (net.active) pushSharedState();
+    else maybeComputerTurn();
   });
+
+  $('friendBtn').addEventListener('click', () => {
+    $('menuDialog').close();
+    hostSharedGame();
+  });
+
+  $('copyLinkBtn').addEventListener('click', async () => {
+    const link = $('shareLink').value;
+    try {
+      await navigator.clipboard.writeText(link);
+      $('copyLinkBtn').textContent = 'Copied';
+      setTimeout(() => { $('copyLinkBtn').textContent = 'Copy link'; }, 1500);
+    } catch {
+      $('shareLink').select?.();
+      $('copyLinkBtn').textContent = 'Select and copy';
+    }
+  });
+
+  $('shareSheetBtn').addEventListener('click', () => {
+    navigator.share?.({
+      title: 'Blockhead',
+      text: 'Your move — Blockhead word game',
+      url: $('shareLink').value,
+    }).catch(() => {});
+  });
+}
+
+// --- shared games -------------------------------------------------------
+
+function shareUrl(id) {
+  return `${location.origin}${location.pathname}#g=${id}`;
+}
+
+function setOnlineMessage(text, kind = '') {
+  const bar = $('onlineBar');
+  bar.hidden = !text;
+  bar.textContent = text || '';
+  bar.className = `onlinebar${kind ? ` ${kind}` : ''}`;
+}
+
+async function hostSharedGame() {
+  stopClock();
+  game.reset({ opponent: 'human' });
+  game.players[0].name = 'Player 1';
+  game.players[1].name = 'Player 2';
+  setOnlineMessage('Creating game…');
+  render();
+  try {
+    const { id, seq } = await online.createGame(game.toJSON());
+    net.active = true;
+    net.id = id;
+    net.role = 0;
+    net.seq = seq;
+    net.error = null;
+    try { localStorage.setItem(roleKey(id), '0'); } catch { /* private mode */ }
+    startPolling();
+    $('shareLink').value = shareUrl(id);
+    $('shareSheetBtn').hidden = typeof navigator.share !== 'function';
+    $('shareDialog').showModal();
+    render();
+  } catch (err) {
+    net.active = false;
+    setOnlineMessage(err.message, 'error');
+  }
+}
+
+async function joinSharedGame(id) {
+  setOnlineMessage('Joining game…');
+  try {
+    const snapshot = await online.fetchGame(id);
+    if (!snapshot) {
+      setOnlineMessage(`No game found for link "${id}". Ask for a fresh invite.`, 'error');
+      return;
+    }
+    let role = 1;
+    try {
+      const stored = localStorage.getItem(roleKey(id));
+      if (stored !== null) role = Number(stored);
+      else localStorage.setItem(roleKey(id), '1');
+    } catch { /* private mode: default to guest */ }
+
+    game.loadFrom(snapshot.state);
+    net.active = true;
+    net.id = id;
+    net.role = role;
+    net.seq = snapshot.seq;
+    net.error = null;
+    startPolling();
+    startClock();
+    render();
+  } catch (err) {
+    setOnlineMessage(err.message, 'error');
+  }
+}
+
+function startPolling() {
+  if (net.poller) net.poller.dispose();
+  net.poller = online.createPoller({
+    id: net.id,
+    getLastSeq: () => net.seq,
+    onUpdate: (snapshot) => {
+      net.seq = snapshot.seq;
+      net.error = null;
+      try {
+        game.loadFrom(snapshot.state);
+      } catch (err) {
+        setOnlineMessage(`Could not read the opponent's move: ${err.message}`, 'error');
+        return;
+      }
+      syncPolling();
+      startClock();
+      render();
+    },
+    onError: (err) => {
+      net.error = err.message;
+      render();
+    },
+  });
+  syncPolling();
+}
+
+/** Only poll while waiting on the opponent — an idle game then costs nothing. */
+function syncPolling() {
+  if (!net.poller) return;
+  if (net.active && game.status === 'playing' && !myTurn()) net.poller.start();
+  else net.poller.stop();
+}
+
+async function pushSharedState() {
+  if (!net.active) return;
+  try {
+    net.seq = await online.pushGame(net.id, game.toJSON(), net.seq + 1);
+    net.error = null;
+  } catch (err) {
+    net.error = `Move not sent: ${err.message}`;
+  }
+  syncPolling();
+  render();
 }
 
 // --- computer turn ------------------------------------------------------
@@ -358,6 +533,8 @@ function startClock() {
   stopClock();
   if (game.status !== 'playing' || game.settings.turnSeconds === null) { renderTimer(); return; }
   if (game.isComputerTurn) { renderTimer(); return; }
+  // In a shared game each device only runs its own clock.
+  if (net.active && !myTurn()) { renderTimer(); return; }
   secondsLeft = game.settings.turnSeconds;
   renderTimer();
   clock = setInterval(() => {
@@ -367,7 +544,8 @@ function startClock() {
       game.handleTimeout();
       render();
       startClock();
-      maybeComputerTurn();
+      if (net.active) pushSharedState();
+      else maybeComputerTurn();
     } else {
       renderTimer();
     }
@@ -420,12 +598,23 @@ function render() {
   err.hidden = !game.lastError;
   err.textContent = game.lastError || '';
 
-  $('confirmBtn').disabled = !game.canConfirm || thinking;
+  $('confirmBtn').disabled = !game.canConfirm || thinking || !myTurn();
 
   if (!thinking) {
-    $('turnLabel').textContent = game.status === 'finished'
-      ? 'Game over'
-      : `${game.players[game.current].name} to move`;
+    if (game.status === 'finished') {
+      $('turnLabel').textContent = 'Game over';
+    } else if (net.active) {
+      $('turnLabel').textContent = myTurn() ? 'Your move' : "Opponent's move";
+    } else {
+      $('turnLabel').textContent = `${game.players[game.current].name} to move`;
+    }
+  }
+
+  if (net.active) {
+    if (net.error) setOnlineMessage(net.error, 'error');
+    else if (game.status !== 'playing') setOnlineMessage('Game over — share a new link to play again.');
+    else if (myTurn()) setOnlineMessage(`Shared game ${net.id} — your turn.`);
+    else setOnlineMessage(`Shared game ${net.id} — waiting for your opponent…`, 'waiting');
   }
 
   renderScores();
