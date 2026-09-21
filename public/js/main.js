@@ -5,9 +5,53 @@ import * as online from './online.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '8';
+const BUILD = '9';
 
-const $ = (id) => document.getElementById(id);
+// A browser will happily pair a cached older index.html with fresh JavaScript.
+// When that happens an element this script expects may simply not exist, and
+// one `null.addEventListener` used to abort boot and leave a dead page. Any
+// missing element now resolves to an inert stand-in: handlers attach to
+// nothing, property writes go nowhere, reads give harmless defaults, and the
+// rest of the app carries on. Typos are still caught — the UI smoke test
+// asserts every id used here exists in index.html.
+const reportedMissing = new Set();
+
+function missingElement(id) {
+  if (!reportedMissing.has(id)) {
+    reportedMissing.add(id);
+    globalThis.console?.warn?.(
+      `Blockhead build ${BUILD}: no #${id} in this document — stale HTML?`);
+  }
+  return new Proxy(function noop() {}, {
+    get(_target, prop) {
+      switch (prop) {
+        case 'value':
+        case 'textContent':
+        case 'innerHTML':
+          return '';
+        case 'hidden':
+        case 'disabled':
+          return true;
+        case 'open':
+          return false;
+        case 'children':
+          return [];
+        case 'classList':
+          return { add() {}, remove() {}, toggle() {}, contains: () => false };
+        case 'style':
+          return {};
+        case 'dataset':
+          return {};
+        default:
+          return () => undefined;
+      }
+    },
+    set() { return true; },
+    apply() { return undefined; },
+  });
+}
+
+const $ = (id) => document.getElementById(id) || missingElement(id);
 const SETTINGS_KEY = 'blockhead.settings';
 
 let game = null;

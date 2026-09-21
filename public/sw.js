@@ -1,4 +1,4 @@
-const CACHE = 'blockhead-v6';
+const CACHE = 'blockhead-v7';
 const ASSETS = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/main.js', 'js/game.js', 'js/board.js', 'js/movefinder.js', 'js/dictionary.js',
