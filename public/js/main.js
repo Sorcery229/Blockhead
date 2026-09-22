@@ -6,7 +6,7 @@ import * as definitions from './definitions.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '14';
+const BUILD = '15';
 
 // A browser will happily pair a cached older index.html with fresh JavaScript.
 // When that happens an element this script expects may simply not exist, and
@@ -757,11 +757,9 @@ function render() {
   $('currentWord').textContent = word.toUpperCase();
   $('wordPoints').textContent = word ? `${word.length} pts` : '';
   $('hint').hidden = word.length > 0;
-  // Only the opening prompt. The tracing instructions were noise once you've
-  // done it once, and they sat under the board every single turn.
-  $('hint').textContent = game.pendingLetter === null
-    ? 'Tap an empty square to add a letter'
-    : '';
+  // No standing instructions under the board at all — they were permanent
+  // furniture for something you learn on the first turn.
+  $('hint').textContent = '';
 
   const err = $('error');
   err.hidden = !game.lastError;
@@ -901,11 +899,16 @@ async function loadDefinition(word) {
     return;
   }
 
-  const pos = document.createElement('div');
-  pos.className = 'pos';
-  pos.textContent = entry.partOfSpeech
-    + (entry.base ? ` · from “${entry.base}”` : '');
-  box.appendChild(pos);
+  const bits = [];
+  if (entry.partOfSpeech) bits.push(entry.partOfSpeech);
+  if (entry.base) bits.push(`from “${entry.base}”`);
+  if (entry.generated) bits.push('machine-written');
+  if (bits.length) {
+    const pos = document.createElement('div');
+    pos.className = 'pos';
+    pos.textContent = bits.join(' · ');
+    box.appendChild(pos);
+  }
 
   const text = document.createElement('div');
   text.textContent = entry.definition;

@@ -37,5 +37,12 @@ export async function lookup(word) {
   const data = await shard(key[0]);
   const entry = data[key];
   if (!entry) return null;
-  return { partOfSpeech: entry[0], definition: entry[1], base: entry[2] };
+  return {
+    partOfSpeech: entry[0],
+    definition: entry[1],
+    base: entry[2] || undefined,
+    // Flagged in the data so the panel can say a gloss was not
+    // taken from a published dictionary.
+    generated: entry[3] === 1,
+  };
 }

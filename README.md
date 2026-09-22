@@ -108,11 +108,16 @@ WordNet 3.0 (see NOTICE), cut to one short definition per word and split into
 9.5 MB. The file for any word already on screen is warmed in the background, so
 by the time you tap it the panel is already populated.
 
-Coverage is 66% of the lexicon — 114,298 of 172,820 words. WordNet indexes
-lemmas, so inflected forms were resolved at build time to their base ("poses" →
-"pose", "happiest" → "happy") and the panel names the base it used. The
-remaining third are mostly rare ENABLE entries WordNet doesn't list; those say
-so plainly instead of showing a spinner.
+Coverage is 78.6% of the lexicon — 135,811 of 172,820 words. Senses are taken
+from WordNet's own sense-1 ordering via its index files; reading data.* in file
+order instead gave arbitrary senses ("smoke" came out as a baseball pitch).
+Inflected forms are resolved at build time to their base, including irregular
+and classical plurals ("knives" → "knife", "matrices" → "matrix", "abaci" →
+"abacus"), and the panel names the base it used. Webster's 1913 (public domain)
+fills gaps WordNet doesn't list, with cross-reference-only entries filtered out.
+A further 2,793 short words that neither source covers carry machine-written
+glosses, labelled as such in the panel. The remaining 21% say plainly that
+there's no definition rather than showing a spinner.
 
 The earlier version called dictionaryapi.dev, which is why definitions hung on
 "Looking up…" — a third-party API on the critical path of a tap.
