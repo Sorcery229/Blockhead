@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS = {
   difficulty: 'medium',
   turnSeconds: null,
   timeoutPolicy: 'skipTurn',
-  minimumWordLength: 3,
+  minimumWordLength: 2,
   allowChallenge: true,
 };
 

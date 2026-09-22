@@ -18,7 +18,7 @@
     ],
     "headers": [
       {
-        "source": "**/*.@(txt|png)",
+        "source": "**/*.@(txt|png|json)",
         "headers": [
           {
             "key": "Cache-Control",

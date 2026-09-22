@@ -1,4 +1,4 @@
-const CACHE = 'blockhead-v11';
+const CACHE = 'blockhead-v12';
 
 // Only these are cached aggressively: they're large and they don't change
 // between releases. Everything else goes to the network first.
@@ -38,7 +38,7 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   const path = url.pathname.replace(/^\/+/, '');
-  if (IMMUTABLE.some((name) => path.endsWith(name))) {
+  if (path.includes('defs/') || IMMUTABLE.some((name) => path.endsWith(name))) {
     e.respondWith(cacheFirst(req));
     return;
   }

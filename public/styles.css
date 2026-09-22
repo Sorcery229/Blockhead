@@ -129,7 +129,7 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text);
-  transition: background .12s ease, transform .12s ease;
+  transition: background .12s ease, border-color .12s ease;
 }
 .cell.empty { color: transparent; }
 .cell.playable { background: rgba(255,255,255,.03); border-style: dashed; }
@@ -138,7 +138,8 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
   background: var(--accent);
   border-color: var(--accent-hi);
   color: #fff;
-  transform: scale(1.03);
+  /* No transform: a selected block must stay exactly the size of its
+     neighbours. Scaling it made the grid appear to shift mid-word. */
 }
 .cell.highlight { border-color: #ffa63d; border-width: 3px; }
 

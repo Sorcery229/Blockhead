@@ -99,6 +99,24 @@ behaves normally. Deploy to Hosting for the full PWA.
 `BUILD` at the top of `js/main.js` when you change shipped files, and bump
 `CACHE` in `sw.js` too or an installed PWA will keep serving the old one.
 
+## Word meanings
+
+Tapping a played word shows its meaning from a bundled dictionary — no network
+call, no external link, nothing to wait for. Glosses come from Princeton
+WordNet 3.0 (see NOTICE), cut to one short definition per word and split into
+26 files by first letter, so a lookup fetches 70–200 KB rather than the whole
+9.5 MB. The file for any word already on screen is warmed in the background, so
+by the time you tap it the panel is already populated.
+
+Coverage is 66% of the lexicon — 114,298 of 172,820 words. WordNet indexes
+lemmas, so inflected forms were resolved at build time to their base ("poses" →
+"pose", "happiest" → "happy") and the panel names the base it used. The
+remaining third are mostly rare ENABLE entries WordNet doesn't list; those say
+so plainly instead of showing a spinner.
+
+The earlier version called dictionaryapi.dev, which is why definitions hung on
+"Looking up…" — a third-party API on the critical path of a tap.
+
 ## Unknown words
 
 Confirm is always pressable. If the traced word is legal in shape but isn't in

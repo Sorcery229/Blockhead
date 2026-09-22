@@ -2,10 +2,11 @@ import { WordDictionary } from './dictionary.js';
 import { CELLS, SIZE } from './board.js';
 import { BlockheadGame, TIME_OPTIONS, DEFAULT_SETTINGS } from './game.js';
 import * as online from './online.js';
+import * as definitions from './definitions.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '13';
+const BUILD = '14';
 
 // A browser will happily pair a cached older index.html with fresh JavaScript.
 // When that happens an element this script expects may simply not exist, and
@@ -856,6 +857,7 @@ function playerCard(p, idx) {
         pts.textContent = `+${w.points}`;
         li.append(label, pts);
         if (!w.skipped) {
+          definitions.prefetch(w.word);
           li.addEventListener('click', () => showWord(w));
           // Highlighting must NOT go through render(): render() rebuilds these
           // list items, so on any pointer device the hover that precedes a tap
@@ -880,65 +882,34 @@ function showWord(w) {
   const who = game.players[w.player] ? game.players[w.player].name : 'unknown';
   $('wordMeta').textContent = `${w.points} points · played by ${who}`
     + (w.challenged ? ' · allowed by agreement, not in the dictionary' : '');
-  $('wordLookup').href = `https://www.merriam-webster.com/dictionary/${encodeURIComponent(w.word)}`;
   $('wordDialog').showModal();
   loadDefinition(w.word);
 }
 
-/**
- * Definitions come from dictionaryapi.dev, a free no-key API. It is a
- * third-party dependency and needs a connection, so every failure path lands
- * on the same message rather than an empty panel — the game itself never
- * depends on it.
- */
+/** Meanings come from the bundled WordNet glosses — no network call, nothing
+ *  to time out, and no link to follow. See js/definitions.js. */
 async function loadDefinition(word) {
   const box = $('wordDefinition');
-  box.textContent = 'Looking up…';
-
-  const fallback = (message) => {
-    box.textContent = '';
-    const p = document.createElement('span');
-    p.className = 'none';
-    p.textContent = message;
-    box.appendChild(p);
-  };
-
-  let data;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
-      { signal: controller.signal },
-    );
-    clearTimeout(timer);
-    if (res.status === 404) return fallback('No dictionary entry for this word.');
-    if (!res.ok) return fallback(`Lookup failed (${res.status}).`);
-    data = await res.json();
-  } catch {
-    return fallback('Could not reach the dictionary — you may be offline.');
-  }
-
-  const meanings = (Array.isArray(data) ? data : [])
-    .flatMap((entry) => entry.meanings || []);
-  if (!meanings.length) return fallback('No definition found.');
-
   box.textContent = '';
-  for (const meaning of meanings.slice(0, 3)) {
-    if (meaning.partOfSpeech) {
-      const pos = document.createElement('div');
-      pos.className = 'pos';
-      pos.textContent = meaning.partOfSpeech;
-      box.appendChild(pos);
-    }
-    const ol = document.createElement('ol');
-    for (const d of (meaning.definitions || []).slice(0, 3)) {
-      const li = document.createElement('li');
-      li.textContent = d.definition || '';
-      ol.appendChild(li);
-    }
-    box.appendChild(ol);
+
+  const entry = await definitions.lookup(word);
+  if (!entry) {
+    const none = document.createElement('span');
+    none.className = 'none';
+    none.textContent = 'No definition for this word in the bundled dictionary.';
+    box.appendChild(none);
+    return;
   }
+
+  const pos = document.createElement('div');
+  pos.className = 'pos';
+  pos.textContent = entry.partOfSpeech
+    + (entry.base ? ` · from “${entry.base}”` : '');
+  box.appendChild(pos);
+
+  const text = document.createElement('div');
+  text.textContent = entry.definition;
+  box.appendChild(text);
 }
 
 $('wordDialog')?.addEventListener('close', () => applyHighlight([]));

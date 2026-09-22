@@ -187,14 +187,46 @@ test('non-words rejected', () => {
   ok(g.validate().includes("isn't in the dictionary"));
 });
 
-test('too-short words rejected', () => {
+test('two-letter words are legal now the lexicon carries them', () => {
   const g = newGame();
+  eq(g.settings.minimumWordLength, 2);
   const cell = indexOf(1, 0);
   g.placeLetter('a', cell);
   g.toggleInPath(cell);
   g.toggleInPath(indexOf(2, 0));
   eq(g.currentWord, 'ab');
-  ok(g.validate().includes('at least 3'));
+  ok(dict.contains(codes('ab')), '"ab" should be in the lexicon');
+  eq(g.validate(), null);
+  ok(g.confirm());
+  eq(g.score(0), 2);
+});
+
+test('a single letter is still too short', () => {
+  const g = newGame();
+  const cell = indexOf(1, 0);
+  g.placeLetter('a', cell);
+  g.toggleInPath(cell);
+  eq(g.currentWord, 'a');
+  ok(g.validate().includes('at least 2'));
+});
+
+test('the minimum length remains configurable', () => {
+  const g = newGame();
+  g.settings.minimumWordLength = 4;
+  const cell = indexOf(1, 1);
+  g.placeLetter('t', cell);
+  g.toggleInPath(indexOf(2, 0));
+  g.toggleInPath(indexOf(2, 1));
+  g.toggleInPath(cell);
+  eq(g.currentWord, 'bot');
+  ok(g.validate().includes('at least 4'));
+});
+
+test('the lexicon now contains the 96 two-letter words', () => {
+  for (const w of ['ax', 'ox', 'am', 'xi', 'za'.replace('za', 'ya')]) {
+    ok(dict.contains(codes(w)), `${w} should be present`);
+  }
+  ok(!dict.contains(codes('a')), 'single letters are not words');
 });
 
 test('letters can only go on cells touching a letter', () => {
