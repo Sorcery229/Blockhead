@@ -5,7 +5,7 @@ import * as online from './online.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '10';
+const BUILD = '11';
 
 // A browser will happily pair a cached older index.html with fresh JavaScript.
 // When that happens an element this script expects may simply not exist, and
@@ -622,9 +622,11 @@ function render() {
       const step = path[order + 1] - i;
       const dir = { 1: 'right', '-1': 'left', [SIZE]: 'down', [-SIZE]: 'up' }[step];
       if (dir) {
+        // Empty span — the triangle is drawn entirely in CSS, so it can't be
+        // resized or reshaped by a font fallback.
         const arrow = document.createElement('span');
         arrow.className = `arrow ${dir}`;
-        arrow.textContent = { right: '▸', left: '◂', down: '▾', up: '▴' }[dir];
+        arrow.setAttribute('aria-hidden', 'true');
         el.appendChild(arrow);
       }
     }

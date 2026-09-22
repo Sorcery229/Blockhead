@@ -9,7 +9,7 @@
   --muted: #9aa3c7;
   --danger: #ff6b6b;
   --radius: 14px;
-  --gap: 6px;
+  --gap: 8px;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -142,18 +142,46 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
 }
 .cell.highlight { border-color: #ffa63d; border-width: 3px; }
 
-/* Direction of travel, drawn in the gap between two selected cells. */
+/* Direction of travel, straddling the gap between two selected cells.
+   Built from CSS borders rather than a Unicode triangle: glyphs like ▸ come
+   from whatever font the browser falls back to, so they arrive at different
+   sizes and weights in each direction and render far too light. These are
+   pixel-exact and identical whichever way they point.
+
+   14px long and 16px across — about a sixth of a tile — offset by -11px so the
+   triangle starts 3px inside the current tile and its tip lands 3px inside the
+   next one. It visibly bridges the two blocks rather than floating in the gap.
+   The drop shadow keeps it readable where it crosses a light blue tile. */
 .cell .arrow {
   position: absolute; z-index: 3;
-  font-size: 15px; line-height: 1;
-  color: #fff;
-  text-shadow: 0 0 3px rgba(0,0,0,.45);
+  width: 0; height: 0;
   pointer-events: none;
+  filter: drop-shadow(1px 1px 1.5px rgba(8, 14, 34, .9));
 }
-.cell .arrow.right { right: -10px; top: 50%; transform: translateY(-50%); }
-.cell .arrow.left  { left: -10px;  top: 50%; transform: translateY(-50%); }
-.cell .arrow.down  { bottom: -11px; left: 50%; transform: translateX(-50%); }
-.cell .arrow.up    { top: -11px;   left: 50%; transform: translateX(-50%); }
+.cell .arrow.right {
+  right: -11px; top: 50%; transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 14px solid #fff;
+}
+.cell .arrow.left {
+  left: -11px; top: 50%; transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 14px solid #fff;
+}
+.cell .arrow.down {
+  bottom: -11px; left: 50%; transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 14px solid #fff;
+}
+.cell .arrow.up {
+  top: -11px; left: 50%; transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 14px solid #fff;
+}
 
 /* --- move bar --------------------------------------------------------- */
 
