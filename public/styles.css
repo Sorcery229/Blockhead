@@ -142,10 +142,18 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
 }
 .cell.highlight { border-color: #ffa63d; border-width: 3px; }
 
-.cell .order {
-  position: absolute; top: 3px; left: 6px;
-  font-size: 11px; font-weight: 800; color: rgba(255,255,255,.8);
+/* Direction of travel, drawn in the gap between two selected cells. */
+.cell .arrow {
+  position: absolute; z-index: 3;
+  font-size: 15px; line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 3px rgba(0,0,0,.45);
+  pointer-events: none;
 }
+.cell .arrow.right { right: -10px; top: 50%; transform: translateY(-50%); }
+.cell .arrow.left  { left: -10px;  top: 50%; transform: translateY(-50%); }
+.cell .arrow.down  { bottom: -11px; left: 50%; transform: translateX(-50%); }
+.cell .arrow.up    { top: -11px;   left: 50%; transform: translateX(-50%); }
 
 /* --- move bar --------------------------------------------------------- */
 

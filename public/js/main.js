@@ -1,11 +1,11 @@
 import { WordDictionary } from './dictionary.js';
-import { CELLS } from './board.js';
+import { CELLS, SIZE } from './board.js';
 import { BlockheadGame, TIME_OPTIONS, DEFAULT_SETTINGS } from './game.js';
 import * as online from './online.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '9';
+const BUILD = '10';
 
 // A browser will happily pair a cached older index.html with fresh JavaScript.
 // When that happens an element this script expects may simply not exist, and
@@ -615,11 +615,18 @@ function render() {
     const letter = g[i];
     const order = path.indexOf(i);
     el.textContent = letter ? letter.toUpperCase() : '';
-    if (order >= 0) {
-      const tag = document.createElement('span');
-      tag.className = 'order';
-      tag.textContent = String(order + 1);
-      el.appendChild(tag);
+    // An arrow in the gap towards the next cell, rather than a sequence
+    // number inside it: the direction of travel is what you're checking when
+    // you trace a word, and it reads without counting.
+    if (order >= 0 && order < path.length - 1) {
+      const step = path[order + 1] - i;
+      const dir = { 1: 'right', '-1': 'left', [SIZE]: 'down', [-SIZE]: 'up' }[step];
+      if (dir) {
+        const arrow = document.createElement('span');
+        arrow.className = `arrow ${dir}`;
+        arrow.textContent = { right: '▸', left: '◂', down: '▾', up: '▴' }[dir];
+        el.appendChild(arrow);
+      }
     }
     el.className = 'cell'
       + (letter ? '' : ' empty')

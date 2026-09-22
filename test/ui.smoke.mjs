@@ -26,7 +26,7 @@ function makeEl(tag = 'div') {
     style: {},
     listeners,
     _class: '',
-    textContent: '',
+    _text: '',
     _innerHTML: '',
     hidden: false,
     disabled: false,
@@ -43,6 +43,9 @@ function makeEl(tag = 'div') {
     // A real DOM drops existing children when innerHTML is reassigned.
     get innerHTML() { return el._innerHTML; },
     set innerHTML(v) { el._innerHTML = String(v); el.children.length = 0; },
+    // A real DOM drops child nodes when textContent is assigned.
+    get textContent() { return el._text; },
+    set textContent(v) { el._text = String(v); el.children.length = 0; },
     appendChild(c) { el.children.push(c); return c; },
     append(...cs) { el.children.push(...cs); },
     removed: false,
@@ -242,6 +245,21 @@ if (game) {
   tap(indexOf(2, 1));
   tap(indexOf(1, 1));
   check(game.currentWord === 'bot', `traced word should be bot, got "${game.currentWord}"`);
+
+  // Arrows, not sequence numbers: each selected cell except the last carries an
+  // arrow pointing at the next one. B(2,0) → O(2,1) is a step right; O(2,1) →
+  // T(1,1) is a step up; the final cell gets nothing.
+  const arrowsOn = (i) => (board.children[i].children || [])
+    .filter((c) => String(c._class).startsWith('arrow'))
+    .map((c) => c._class);
+  check(arrowsOn(indexOf(2, 0)).join() === 'arrow right',
+    `B should point right, got ${JSON.stringify(arrowsOn(indexOf(2, 0)))}`);
+  check(arrowsOn(indexOf(2, 1)).join() === 'arrow up',
+    `O should point up, got ${JSON.stringify(arrowsOn(indexOf(2, 1)))}`);
+  check(arrowsOn(indexOf(1, 1)).length === 0,
+    'the last cell in the path should have no arrow');
+  check(board.children.every((c) => !(c.children || []).some((k) => k._class === 'order')),
+    'sequence-number badges should be gone');
   check(game.selectedPath.indexOf(indexOf(1, 1)) === 2,
     'the new letter should be the third cell of the path');
   check(registry.get('confirmBtn')?.disabled === false, 'Confirm should be enabled for a valid word');

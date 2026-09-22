@@ -39,6 +39,9 @@ function makeEl(tag = 'div') {
     set className(v) { el._class = String(v); },
     get innerHTML() { return el._innerHTML; },
     set innerHTML(v) { el._innerHTML = String(v); el.children.length = 0; },
+    // A real DOM drops child nodes when textContent is assigned.
+    get textContent() { return el._text; },
+    set textContent(v) { el._text = String(v); el.children.length = 0; },
     appendChild(c) { el.children.push(c); return c; },
     append(...cs) { el.children.push(...cs); },
     remove() { el.removed = true; },
