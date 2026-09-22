@@ -274,11 +274,18 @@ if (game) {
   check(game.score(0) === 3, `score should be 3, got ${game.score(0)}`);
   check(scores.children.length === 2, 'score panel should still render both players');
 
-  // Tapping a played word opens the definition sheet.
-  const firstWordRow = scores.children[0].children[1]?.children?.[0];
-  firstWordRow?.fire?.('click');
+  // Tapping a played word opens the definition sheet. The hover that precedes
+  // every real tap must not rebuild the list — it used to, which replaced the
+  // element so the click landed on a detached node and nothing opened.
+  const wordRow = () => scores.children[0].children[1]?.children?.[0];
+  const before = wordRow();
+  before?.fire?.('pointerenter');
+  check(wordRow() === before,
+    'hovering a word must not rebuild the score list, or the click is lost');
+  before?.fire?.('click');
   check(registry.get('wordTitle')?.textContent === 'BOT',
     `word sheet title should be BOT, got "${registry.get('wordTitle')?.textContent}"`);
+  check(registry.get('wordDialog')?.open === true, 'the word sheet should be open');
   registry.get('wordDialog').close();
 
   // Confirming handed the turn to the computer; let its move finish, otherwise

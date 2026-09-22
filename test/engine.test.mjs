@@ -407,6 +407,10 @@ test('a pending claim survives serialisation', () => {
   eq(b.pendingClaim.by, 0);
   ok(b.resolveClaim(true), 'the opponent can accept it on the other device');
   eq(b.score(0), 3);
+
+  // The mark on an allowed word has to survive the trip back too.
+  const c = new BlockheadGame(dict, { opponent: 'human' }).loadFrom(b.toJSON());
+  eq(c.players[0].words[0].challenged, true);
 });
 
 test('timeout skip policy passes the turn without points', () => {
@@ -417,6 +421,27 @@ test('timeout skip policy passes the turn without points', () => {
   eq(g.current, 1);
   eq(g.status, 'playing');
   eq(g.score(0), 0);
+});
+
+test('a skipped turn is recorded as a dash in that player column', () => {
+  const g = newGame();
+  g.settings.turnSeconds = 10;
+  g.settings.timeoutPolicy = 'skipTurn';
+  g.handleTimeout();
+
+  eq(g.players[0].words.length, 1, 'the skip shows up in the score list');
+  const entry = g.players[0].words[0];
+  eq(entry.word, '—');
+  eq(entry.points, 0);
+  eq(entry.skipped, true);
+  eq(g.score(0), 0, 'and still scores nothing');
+  eq(g.players[1].words.length, 0, 'only the player who ran out is marked');
+
+  // It must not become a playable word or block anything.
+  ok(!g.usedWords.has('—'));
+  const b = new BlockheadGame(dict, { opponent: 'human' }).loadFrom(g.toJSON());
+  eq(b.players[0].words[0].skipped, true, 'and it survives to the other device');
+  eq(b.score(0), 0);
 });
 
 test('timeout lose policy ends the game', () => {

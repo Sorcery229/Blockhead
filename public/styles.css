@@ -85,8 +85,8 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
   display: flex; justify-content: center; align-items: center;
   min-height: 24px; margin-bottom: 8px; font-size: 14px;
 }
-.turn { font-weight: 600; }
-.turn.thinking { color: var(--muted); font-weight: 500; }
+.turn { font-size: 21px; font-weight: 700; letter-spacing: .2px; }
+.turn.thinking { color: var(--muted); font-weight: 600; }
 
 /* Turn clock: centred directly above the grid, large enough to read at a
    glance from across a table. */
@@ -106,45 +106,6 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
   background: rgba(255,107,107,.16); border-color: rgba(255,107,107,.5); color: var(--danger);
 }
 .timer.low small { color: var(--danger); }
-
-/* --- stage: board flanked by score columns on a wide screen ----------- */
-
-.stage { display: block; }
-.playfield { min-width: 0; }
-.scorecol { display: none; }
-
-@media (min-width: 900px) {
-  main { max-width: 1100px; }
-  .stage {
-    display: grid;
-    grid-template-columns: minmax(170px, 1fr) minmax(0, 560px) minmax(170px, 1fr);
-    gap: 22px;
-    align-items: start;
-  }
-  .scorecol { display: block; }
-  /* The stacked score panel is only for narrow screens. */
-  .scores { display: none; }
-  .statusrow { min-height: 28px; }
-  .timer #timerValue { font-size: 38px; }
-  .cell { font-size: clamp(26px, 3.4vw, 46px); }
-}
-
-.onlinebar {
-  margin: 0 0 8px; padding: 7px 10px;
-  border-radius: 10px;
-  background: rgba(60,122,235,.16);
-  border: 1px solid rgba(60,122,235,.35);
-  font-size: 12.5px; color: var(--text);
-}
-.onlinebar.waiting { background: rgba(255,166,61,.14); border-color: rgba(255,166,61,.4); }
-.onlinebar.error { background: rgba(255,107,107,.14); border-color: rgba(255,107,107,.45); }
-
-.linkbox {
-  width: 100%; padding: 10px 12px; margin-bottom: 10px;
-  border-radius: 10px; border: 1px solid rgba(255,255,255,.14);
-  background: var(--surface-2); color: var(--text);
-  font: inherit; font-size: 13px;
-}
 
 /* --- board ------------------------------------------------------------ */
 
@@ -269,6 +230,7 @@ h1 { font-size: 20px; letter-spacing: .5px; margin: 6px 0; }
 }
 .player li .pts { color: var(--muted); font-variant-numeric: tabular-nums; }
 .player .none { color: rgba(255,255,255,.25); font-size: 13px; }
+.player li.skipped { color: var(--muted); cursor: default; letter-spacing: 0; }
 
 /* --- dialogs ---------------------------------------------------------- */
 
@@ -328,3 +290,46 @@ a.btn { display: block; text-align: center; text-decoration: none; }
 .definition .none { color: var(--muted); }
 
 .challenged { color: #ffa63d; font-size: 10px; vertical-align: super; }
+
+/* --- stage: board flanked by score columns on a wide screen -----------
+   Kept at the end of the file deliberately. These are overrides of rules
+   defined above at the same specificity, so source order decides; when
+   this block sat higher up, the later `.scores { display: grid }` won and
+   the stacked score panel stayed visible alongside the side columns. */
+
+.stage { display: block; }
+.playfield { min-width: 0; }
+.scorecol { display: none; }
+
+@media (min-width: 900px) {
+  main { max-width: 1100px; }
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(170px, 1fr) minmax(0, 560px) minmax(170px, 1fr);
+    gap: 22px;
+    align-items: start;
+  }
+  .scorecol { display: block; }
+  /* The stacked score panel is only for narrow screens. */
+  .scores { display: none; }
+  .statusrow { min-height: 28px; }
+  .timer #timerValue { font-size: 38px; }
+  .cell { font-size: clamp(26px, 3.4vw, 46px); }
+}
+
+.onlinebar {
+  margin: 0 0 8px; padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(60,122,235,.16);
+  border: 1px solid rgba(60,122,235,.35);
+  font-size: 12.5px; color: var(--text);
+}
+.onlinebar.waiting { background: rgba(255,166,61,.14); border-color: rgba(255,166,61,.4); }
+.onlinebar.error { background: rgba(255,107,107,.14); border-color: rgba(255,107,107,.45); }
+
+.linkbox {
+  width: 100%; padding: 10px 12px; margin-bottom: 10px;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.14);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13px;
+}

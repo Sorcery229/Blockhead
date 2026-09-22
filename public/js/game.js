@@ -396,6 +396,19 @@ export class BlockheadGame {
       this.winner = 1 - loser;
       this.endReason = `${this.players[loser].name} ran out of time.`;
     } else {
+      // Leave a visible mark in the player's column: a skipped turn scoring
+      // nothing is part of the record, not an absence of one.
+      const skip = {
+        word: '—',
+        path: [],
+        cell: null,
+        letter: '',
+        player: this.current,
+        points: 0,
+        skipped: true,
+      };
+      this.players[this.current].words.push(skip);
+      this.history.push(skip);
       this.advance();
     }
   }
@@ -465,6 +478,10 @@ export class BlockheadGame {
         words: p.words.map((w) => ({
           word: w.word, path: w.path, cell: w.cell,
           letter: w.letter, player: w.player, points: w.points,
+          // Both flags change how the entry renders on the other device: a
+          // challenged word carries a mark, a skipped turn isn't clickable.
+          // Listing fields explicitly means new ones have to be added here.
+          challenged: !!w.challenged, skipped: !!w.skipped,
         })),
       })),
     };

@@ -5,7 +5,7 @@ import * as online from './online.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '12';
+const BUILD = '13';
 
 // A browser will happily pair a cached older index.html with fresh JavaScript.
 // When that happens an element this script expects may simply not exist, and
@@ -269,11 +269,6 @@ function buildLetterGrid() {
       pickedLetter = letter;
       for (const other of letterButtons) other.classList.remove('picked');
       b.classList.add('picked');
-      const chosen = $('letterChosen');
-      chosen.textContent = '';
-      const strong = document.createElement('strong');
-      strong.textContent = letter.toUpperCase();
-      chosen.append('Place ', strong, '?');
       $('letterPlaceBtn').disabled = false;
     });
     letterButtons.push(b);
@@ -285,7 +280,6 @@ function openLetterPicker(i) {
   pickerCell = i;
   pickedLetter = null;
   for (const b of letterButtons) b.classList.remove('picked');
-  $('letterChosen').textContent = 'Tap a letter, then Place it.';
   $('letterPlaceBtn').disabled = true;
   $('letterDialog').showModal();
 }
@@ -762,10 +756,11 @@ function render() {
   $('currentWord').textContent = word.toUpperCase();
   $('wordPoints').textContent = word ? `${word.length} pts` : '';
   $('hint').hidden = word.length > 0;
+  // Only the opening prompt. The tracing instructions were noise once you've
+  // done it once, and they sat under the board every single turn.
   $('hint').textContent = game.pendingLetter === null
     ? 'Tap an empty square to add a letter'
-    : 'Trace a word through your new letter. Tap it again to deselect, '
-      + 'once more to take it back.';
+    : '';
 
   const err = $('error');
   err.hidden = !game.lastError;
@@ -797,6 +792,14 @@ function render() {
   renderTimer();
 
   if (game.status === 'finished' && !$('overDialog').open) showGameOver();
+}
+
+/** Repaints only the board's highlight ring, leaving the DOM otherwise intact. */
+function applyHighlight(path) {
+  game.highlightPath = path;
+  for (let i = 0; i < cellEls.length; i++) {
+    cellEls[i].classList.toggle('highlight', path.includes(i));
+  }
 }
 
 function renderScores() {
@@ -852,9 +855,17 @@ function playerCard(p, idx) {
         pts.className = 'pts';
         pts.textContent = `+${w.points}`;
         li.append(label, pts);
-        li.addEventListener('click', () => showWord(w));
-        li.addEventListener('pointerenter', () => { game.highlightPath = w.path; render(); });
-        li.addEventListener('pointerleave', () => { game.highlightPath = []; render(); });
+        if (!w.skipped) {
+          li.addEventListener('click', () => showWord(w));
+          // Highlighting must NOT go through render(): render() rebuilds these
+          // list items, so on any pointer device the hover that precedes a tap
+          // replaced this element and the click never landed on a live node —
+          // which is why tapping a word did nothing. Touch the board only.
+          li.addEventListener('pointerenter', () => applyHighlight(w.path));
+          li.addEventListener('pointerleave', () => applyHighlight([]));
+        } else {
+          li.classList.add('skipped');
+        }
         ul.appendChild(li);
       });
       card.appendChild(ul);
@@ -864,8 +875,7 @@ function playerCard(p, idx) {
 }
 
 function showWord(w) {
-  game.highlightPath = w.path;
-  render();
+  applyHighlight(w.path);
   $('wordTitle').textContent = w.word.toUpperCase();
   const who = game.players[w.player] ? game.players[w.player].name : 'unknown';
   $('wordMeta').textContent = `${w.points} points · played by ${who}`
@@ -931,7 +941,7 @@ async function loadDefinition(word) {
   }
 }
 
-$('wordDialog')?.addEventListener('close', () => { game.highlightPath = []; render(); });
+$('wordDialog')?.addEventListener('close', () => applyHighlight([]));
 
 function showGameOver() {
   $('overTitle').textContent = game.winner === null
