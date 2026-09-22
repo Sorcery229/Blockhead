@@ -99,6 +99,23 @@ behaves normally. Deploy to Hosting for the full PWA.
 `BUILD` at the top of `js/main.js` when you change shipped files, and bump
 `CACHE` in `sw.js` too or an installed PWA will keep serving the old one.
 
+## Unknown words
+
+Confirm is always pressable. If the traced word is legal in shape but isn't in
+the 172,724-word lexicon, it isn't refused — you're asked **"Does this word
+exist?"** with X and a checkmark. Tap the checkmark and the same question goes
+to your opponent, who decides. If they allow it you score normally and the word
+is marked with an asterisk in the score list; if they refuse, you score nothing
+and keep the turn to try again.
+
+The claim is part of the game state, so it travels to the other device in a
+shared game and appears there on the next poll. Against the computer the claim
+is always declined: its only authority on what counts as a word is the lexicon,
+so it cannot honestly do anything else.
+
+Switch this off with "Allow unknown words -> Reject them outright" in the
+new-game settings, and an unknown word is simply an error as before.
+
 ## Playing a friend
 
 Double-click **`Setup Multiplayer.command`** once. It creates a web app in the

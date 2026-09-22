@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS = {
   turnSeconds: null,
   timeoutPolicy: 'skipTurn',
   minimumWordLength: 3,
+  allowChallenge: true,
 };
 
 export const ERRORS = {
@@ -37,6 +38,7 @@ export const ERRORS = {
   pathTooShort: (n) => `Words must be at least ${n} letters.`,
   alreadyPlayed: (w) => `"${w.toUpperCase()}" has already been played.`,
   notInDictionary: (w) => `"${w.toUpperCase()}" isn't in the dictionary.`,
+  challengeRejected: (w) => `Your opponent didn't accept "${w.toUpperCase()}". Play something else.`,
 };
 
 export class BlockheadGame {
@@ -64,6 +66,7 @@ export class BlockheadGame {
     this.status = 'playing';       // 'playing' | 'finished'
     this.winner = null;            // index, or null for a draw
     this.endReason = '';
+    this.pendingClaim = null;      // unknown word awaiting the opponent
     this.clearPending();
     this.seed();
   }
@@ -209,7 +212,10 @@ export class BlockheadGame {
     return wordAlong(this.workingGrid, this.selectedPath);
   }
 
-  validate() {
+  /** Everything that makes a move illegal regardless of the dictionary:
+   *  geometry, the new-letter rule, length, repeats. Kept separate from the
+   *  lexicon check so an unknown word can be challenged rather than refused. */
+  validateShape() {
     if (this.pendingCell === null) return ERRORS.noLetterPlaced;
     const g = this.workingGrid;
     if (!isConnectedPath(g, this.selectedPath)) return ERRORS.pathNotConnected;
@@ -219,12 +225,99 @@ export class BlockheadGame {
       return ERRORS.pathTooShort(this.settings.minimumWordLength);
     }
     if (this.usedWords.has(word)) return ERRORS.alreadyPlayed(word);
+    return null;
+  }
+
+  validate() {
+    const shape = this.validateShape();
+    if (shape) return shape;
+    const word = this.currentWord;
     if (!this.dict.contains(codes(word))) return ERRORS.notInDictionary(word);
     return null;
   }
 
+  get inDictionary() {
+    const word = this.currentWord;
+    return word.length > 0 && this.dict.contains(codes(word));
+  }
+
   get canConfirm() {
     return this.status === 'playing' && this.validate() === null;
+  }
+
+  /**
+   * What the Confirm button does. The button is always enabled, so this has to
+   * say why a move can't stand rather than being silently unavailable.
+   *
+   *   'error'     — illegal move; `message` explains it
+   *   'played'    — accepted and committed
+   *   'challenge' — a legal shape whose word isn't in the lexicon; the player
+   *                 is asked whether it's really a word, and if they say yes
+   *                 the opponent gets to accept or refuse it
+   */
+  submit() {
+    if (this.status !== 'playing') return { outcome: 'error', message: 'The game is over.' };
+    const shape = this.validateShape();
+    if (shape) {
+      this.lastError = shape;
+      return { outcome: 'error', message: shape };
+    }
+    if (this.inDictionary) {
+      const word = this.currentWord;
+      this.commitPending(false);
+      return { outcome: 'played', word };
+    }
+    if (!this.settings.allowChallenge) {
+      this.lastError = ERRORS.notInDictionary(this.currentWord);
+      return { outcome: 'error', message: this.lastError };
+    }
+    return { outcome: 'challenge', word: this.currentWord };
+  }
+
+  /** The player asserts the unknown word is real; it now needs the opponent. */
+  claimWord() {
+    if (this.validateShape() !== null) return false;
+    this.pendingClaim = {
+      word: this.currentWord,
+      path: [...this.selectedPath],
+      cell: this.pendingCell,
+      letter: this.pendingLetter,
+      by: this.current,
+    };
+    this.lastError = null;
+    return true;
+  }
+
+  /** The opponent's verdict on a claimed word. */
+  resolveClaim(accepted) {
+    const claim = this.pendingClaim;
+    if (!claim) return false;
+    this.pendingClaim = null;
+
+    if (!accepted) {
+      this.clearPending();
+      this.lastError = ERRORS.challengeRejected(claim.word);
+      return false;
+    }
+
+    const grid = this.grid.slice();
+    grid[claim.cell] = claim.letter;
+    this.grid = grid;
+    this.usedWords.add(claim.word);
+    const played = {
+      word: claim.word,
+      path: claim.path,
+      cell: claim.cell,
+      letter: claim.letter,
+      player: claim.by,
+      points: claim.word.length,
+      challenged: true,
+    };
+    this.players[claim.by].words.push(played);
+    this.history.push(played);
+    this.clearPending();
+    this.advance();
+    return true;
   }
 
   confirm() {
@@ -233,6 +326,12 @@ export class BlockheadGame {
       this.lastError = error;
       return false;
     }
+    this.commitPending(false);
+    return true;
+  }
+
+  /** Writes the staged move onto the board and passes the turn. */
+  commitPending(challenged) {
     const g = this.workingGrid;
     const word = wordAlong(g, this.selectedPath);
     const played = {
@@ -242,6 +341,7 @@ export class BlockheadGame {
       letter: this.pendingLetter,
       player: this.current,
       points: word.length,
+      challenged: !!challenged,
     };
     this.grid = g;
     this.usedWords.add(word);
@@ -357,7 +457,9 @@ export class BlockheadGame {
         turnSeconds: this.settings.turnSeconds,
         timeoutPolicy: this.settings.timeoutPolicy,
         minimumWordLength: this.settings.minimumWordLength,
+        allowChallenge: this.settings.allowChallenge,
       },
+      pendingClaim: this.pendingClaim,
       players: this.players.map((p) => ({
         name: p.name,
         words: p.words.map((w) => ({
@@ -379,6 +481,7 @@ export class BlockheadGame {
     this.status = data.status;
     this.winner = data.winner === undefined ? null : data.winner;
     this.endReason = data.endReason || '';
+    this.pendingClaim = data.pendingClaim || null;
     this.settings = { ...this.settings, ...(data.settings || {}) };
     this.players = (data.players || []).map((p) => ({
       name: p.name,
@@ -402,6 +505,7 @@ export class BlockheadGame {
     this.status = 'playing';
     this.winner = null;
     this.endReason = '';
+    this.pendingClaim = null;
     this.clearPending();
   }
 }

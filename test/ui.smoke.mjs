@@ -228,12 +228,18 @@ if (game) {
   tap(indexOf(1, 1));
   check(registry.get('letterDialog')?.open === true, 'letter picker did not open');
 
-  // Choose T.
+  // Choose T — but tapping the letter must NOT place it on its own.
   const tBtn = letters.children[19];
   check(tBtn?.textContent === 'T', `expected T at index 19, got ${tBtn?.textContent}`);
   tBtn?.fire?.('click');
+  check(game.pendingLetter === null,
+    'tapping a letter must not place it; Place letter confirms');
+  check(registry.get('letterDialog')?.open === true, 'picker should stay open until Place');
+  check(registry.get('letterPlaceBtn')?.disabled === false, 'Place should enable once a letter is picked');
+
+  registry.get('letterPlaceBtn').fire('click');
   check(game.pendingLetter === 't', `pending letter should be t, got ${game.pendingLetter}`);
-  check(registry.get('letterDialog')?.open === false, 'letter picker should close after a pick');
+  check(registry.get('letterDialog')?.open === false, 'letter picker should close after Place');
 
   // Picking a letter must NOT pre-seed the path. Seeding it forced every word
   // to begin with the new letter, which is not the rule.
@@ -286,7 +292,9 @@ if (game) {
   mod.__test.render();
   const newCell = indexOf(1, 1);
   tap(newCell);
-  letters.children[19]?.fire?.('click');          // T
+  letters.children[19]?.fire?.('click');          // pick T
+  registry.get('letterPlaceBtn').fire('click');   // then place it
+  check(game.pendingLetter === 't', 'letter should be staged');
   check(game.selectedPath.length === 0, 'placing a letter must not pre-select it');
 
   tap(newCell);
@@ -297,6 +305,68 @@ if (game) {
   tap(newCell);
   check(game.pendingLetter === null, 'third tap should remove the letter');
   check(game.grid[newCell] === '', 'removing must not touch the committed board');
+}
+
+// --- the does-this-word-exist flow, through the real buttons ------------
+
+if (game) {
+  // `tap` from the earlier block is scoped to it, so re-declare it here.
+  const tap = (i) => {
+    hitCell = board.children[i];
+    board.fire('pointerdown', { clientX: 1, clientY: 1, pointerId: 1 });
+    board.fire('pointerup', { clientX: 1, clientY: 1, pointerId: 1 });
+  };
+
+  const stageXob = () => {
+    game.setPosition(placeWord(emptyGrid(), 'board', 2), ['board']);
+    mod.__test.render();
+    const cell = indexOf(1, 1);
+    tap(cell);
+    letters.children[23]?.fire?.('click');          // X
+    registry.get('letterPlaceBtn').fire('click');
+    tap(cell);
+    tap(indexOf(2, 1));
+    tap(indexOf(2, 0));
+    return cell;
+  };
+
+  // Confirm is always pressable now, even for a word that isn't in the lexicon.
+  stageXob();
+  check(game.currentWord === 'xob', `expected xob, got "${game.currentWord}"`);
+  check(registry.get('confirmBtn')?.disabled === false,
+    'Confirm must stay enabled for an unknown word');
+
+  registry.get('confirmBtn').fire('click');
+  check(registry.get('claimDialog')?.open === true, 'the claim dialog should open');
+  check(registry.get('claimWord')?.textContent === 'xob',
+    `claim dialog should show the word, got "${registry.get('claimWord')?.textContent}"`);
+  check(game.score(0) === 0, 'nothing is scored before the opponent agrees');
+
+  // Against the computer, ✓ is declined — its only authority is the lexicon.
+  game.players[1].isComputer = true;
+  registry.get('claimYesBtn').fire('click');
+  check(game.score(0) === 0, 'the computer should refuse an unknown word');
+  check(game.current === 0, 'and the turn should stay put');
+
+  // Pass and play: the opponent is asked, and ✓ awards the points.
+  stageXob();
+  game.players[1].isComputer = false;
+  registry.get('confirmBtn').fire('click');
+  registry.get('claimYesBtn').fire('click');       // player asserts it
+  check(registry.get('claimDialog')?.open === true, 'the opponent should now be asked');
+  registry.get('claimYesBtn').fire('click');       // opponent allows it
+  check(game.score(0) === 3, `expected 3 points, got ${game.score(0)}`);
+  check(game.current === 1, 'turn passes once allowed');
+  check(game.players[0].words[0].challenged === true, 'marked as allowed by agreement');
+
+  // And ✗ from the opponent awards nothing.
+  stageXob();
+  game.players[1].isComputer = false;
+  registry.get('confirmBtn').fire('click');
+  registry.get('claimYesBtn').fire('click');
+  registry.get('claimNoBtn').fire('click');
+  check(game.score(0) === 0, 'a refused word scores nothing');
+  check(game.current === 0, 'and the player keeps the turn');
 }
 
 // --- menu, settings, game over -----------------------------------------

@@ -5,7 +5,7 @@ import * as online from './online.js';
 
 // Bumped whenever the shipped files change, so "which build am I running?" is
 // answerable from the console instead of guessed at.
-const BUILD = '11';
+const BUILD = '12';
 
 // A browser will happily pair a cached older index.html with fresh JavaScript.
 // When that happens an element this script expects may simply not exist, and
@@ -252,31 +252,53 @@ function attachPointer(board) {
 
 let pickerCell = null;
 
+let pickedLetter = null;
+const letterButtons = [];
+
 function buildLetterGrid() {
   const grid = $('letterGrid');
   grid.innerHTML = '';
+  letterButtons.length = 0;
   for (const letter of 'abcdefghijklmnopqrstuvwxyz') {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = letter.toUpperCase();
+    // Picking highlights; nothing reaches the board until Place is pressed, so
+    // a mistyped letter costs one more tap rather than an undo.
     b.addEventListener('click', () => {
-      if (pickerCell === null) return;
-      game.placeLetter(letter, pickerCell);
-      // Deliberately do NOT put the new cell into the path here. The word only
-      // has to *pass through* the new letter — it may start anywhere and the
-      // new letter may sit at the start, middle or end. Seeding the path forced
-      // every word to begin with it.
-      pickerCell = null;
-      $('letterDialog').close();
-      render();
+      pickedLetter = letter;
+      for (const other of letterButtons) other.classList.remove('picked');
+      b.classList.add('picked');
+      const chosen = $('letterChosen');
+      chosen.textContent = '';
+      const strong = document.createElement('strong');
+      strong.textContent = letter.toUpperCase();
+      chosen.append('Place ', strong, '?');
+      $('letterPlaceBtn').disabled = false;
     });
+    letterButtons.push(b);
     grid.appendChild(b);
   }
 }
 
 function openLetterPicker(i) {
   pickerCell = i;
+  pickedLetter = null;
+  for (const b of letterButtons) b.classList.remove('picked');
+  $('letterChosen').textContent = 'Tap a letter, then Place it.';
+  $('letterPlaceBtn').disabled = true;
   $('letterDialog').showModal();
+}
+
+function placePickedLetter() {
+  if (pickerCell === null || pickedLetter === null) return;
+  // Deliberately do NOT put the new cell into the path here. The word only has
+  // to *pass through* the new letter — it may sit at the start, middle or end.
+  game.placeLetter(pickedLetter, pickerCell);
+  pickerCell = null;
+  pickedLetter = null;
+  $('letterDialog').close();
+  render();
 }
 
 // --- settings -----------------------------------------------------------
@@ -299,6 +321,7 @@ function openSettings() {
   f.startMode.value = game.settings.startMode;
   f.turnSeconds.value = game.settings.turnSeconds === null ? '' : String(game.settings.turnSeconds);
   f.timeoutPolicy.value = game.settings.timeoutPolicy;
+  f.allowChallenge.value = game.settings.allowChallenge === false ? 'no' : 'yes';
   syncSettingsVisibility();
   $('settingsDialog').showModal();
 }
@@ -368,6 +391,7 @@ function wireControls() {
       startMode: f.startMode.value,
       turnSeconds: f.turnSeconds.value === '' ? null : Number(f.turnSeconds.value),
       timeoutPolicy: f.timeoutPolicy.value,
+      allowChallenge: f.allowChallenge.value !== 'no',
     });
     saveSettings();
     startClock();
@@ -395,13 +419,47 @@ function wireControls() {
     saveSettings();
   });
 
+  $('letterPlaceBtn').addEventListener('click', placePickedLetter);
+  $('letterCancelBtn').addEventListener('click', () => {
+    pickerCell = null;
+    pickedLetter = null;
+    $('letterDialog').close();
+  });
+
+  $('cancelBtn').addEventListener('click', () => {
+    game.clearPending();
+    render();
+  });
+
+  // Always enabled: pressing it tells you what's wrong, or opens the
+  // does-this-word-exist question, rather than being silently unavailable.
   $('confirmBtn').addEventListener('click', () => {
     if (!myTurn()) return;
-    if (!game.confirm()) { render(); return; }
-    startClock();
+    const result = game.submit();
+    if (result.outcome === 'played') {
+      startClock();
+      render();
+      if (net.active) pushSharedState();
+      else maybeComputerTurn();
+      return;
+    }
+    if (result.outcome === 'challenge') {
+      openOwnClaim(result.word);
+      return;
+    }
     render();
-    if (net.active) pushSharedState();
-    else maybeComputerTurn();
+  });
+
+  $('claimYesBtn').addEventListener('click', () => {
+    $('claimDialog').close();
+    if (claimMode === 'own') acceptOwnClaim();
+    else resolveOpponentClaim(true);
+  });
+
+  $('claimNoBtn').addEventListener('click', () => {
+    $('claimDialog').close();
+    if (claimMode === 'own') render();          // back to editing
+    else resolveOpponentClaim(false);
   });
 
   $('friendBtn').addEventListener('click', () => {
@@ -428,6 +486,67 @@ function wireControls() {
       url: $('shareLink').value,
     }).catch(() => {});
   });
+}
+
+// --- unknown words ------------------------------------------------------
+
+let claimMode = 'own';   // 'own' = asking the player; 'verdict' = asking the opponent
+
+function openOwnClaim(word) {
+  claimMode = 'own';
+  $('claimTitle').textContent = 'Does this word exist?';
+  $('claimWord').textContent = word;
+  $('claimBody').textContent = "It isn't in the dictionary. Tap ✓ if you're sure "
+    + "it's a word and your opponent will be asked to allow it.";
+  $('claimDialog').showModal();
+}
+
+function openOpponentClaim(claim) {
+  claimMode = 'verdict';
+  $('claimTitle').textContent = 'Does this word exist?';
+  $('claimWord').textContent = claim.word;
+  const who = game.players[claim.by] ? game.players[claim.by].name : 'Your opponent';
+  $('claimBody').textContent = `${who} says this is a word. Tap ✓ to allow it and `
+    + 'award the points, or ✗ to refuse.';
+  $('claimDialog').showModal();
+}
+
+function acceptOwnClaim() {
+  if (!game.claimWord()) { render(); return; }
+  const claim = game.pendingClaim;
+
+  if (net.active) {
+    // The opponent's device will see the claim on its next poll.
+    pushSharedState();
+    render();
+    return;
+  }
+  if (game.players[1 - claim.by] && game.players[1 - claim.by].isComputer) {
+    // The computer's only authority on words is the lexicon, so it declines.
+    game.resolveClaim(false);
+    render();
+    return;
+  }
+  openOpponentClaim(claim);     // pass and play: hand the device over
+}
+
+function resolveOpponentClaim(accepted) {
+  game.resolveClaim(accepted);
+  startClock();
+  render();
+  if (net.active) pushSharedState();
+  else if (accepted) maybeComputerTurn();
+}
+
+/** After a poll, show the question if the opponent has claimed a word. */
+function maybeShowIncomingClaim() {
+  const claim = game.pendingClaim;
+  const dialog = $('claimDialog');
+  if (!claim) {
+    if (dialog.open && claimMode === 'verdict') dialog.close();
+    return;
+  }
+  if (net.active && claim.by !== net.role && !dialog.open) openOpponentClaim(claim);
 }
 
 // --- shared games -------------------------------------------------------
@@ -515,6 +634,7 @@ function startPolling() {
       syncPolling();
       startClock();
       render();
+      maybeShowIncomingClaim();
     },
     onError: (err) => {
       net.error = err.message;
@@ -600,7 +720,7 @@ function renderTimer() {
   const el = $('timer');
   if (secondsLeft === null) { el.hidden = true; return; }
   el.hidden = false;
-  el.textContent = `${secondsLeft}s`;
+  $('timerValue').textContent = String(secondsLeft);
   el.classList.toggle('low', secondsLeft <= 5);
 }
 
@@ -651,7 +771,10 @@ function render() {
   err.hidden = !game.lastError;
   err.textContent = game.lastError || '';
 
-  $('confirmBtn').disabled = !game.canConfirm || thinking || !myTurn();
+  // Confirm stays enabled so pressing it can explain the problem or offer the
+  // does-this-word-exist route. It's only disabled when acting is impossible.
+  $('confirmBtn').disabled = thinking || !myTurn() || game.status !== 'playing';
+  $('cancelBtn').disabled = game.pendingCell === null && path.length === 0;
 
   if (!thinking) {
     if (game.status === 'finished') {
@@ -677,9 +800,23 @@ function render() {
 }
 
 function renderScores() {
-  const wrap = $('scores');
-  wrap.innerHTML = '';
+  // Three containers: the two side columns used on a wide screen, and the
+  // stacked pair used on a phone. CSS shows whichever fits; a DOM node can
+  // only live in one place, so each card is built for each container.
+  const left = $('scoreLeft');
+  const right = $('scoreRight');
+  const stacked = $('scores');
+  left.innerHTML = '';
+  right.innerHTML = '';
+  stacked.innerHTML = '';
   game.players.forEach((p, idx) => {
+    (idx === 0 ? left : right).appendChild(playerCard(p, idx));
+    stacked.appendChild(playerCard(p, idx));
+  });
+}
+
+function playerCard(p, idx) {
+  {
     const card = document.createElement('div');
     card.className = 'player' + (game.current === idx && game.status === 'playing' ? ' active' : '');
 
@@ -704,6 +841,13 @@ function renderScores() {
         const li = document.createElement('li');
         const label = document.createElement('span');
         label.textContent = w.word;
+        if (w.challenged) {
+          const mark = document.createElement('span');
+          mark.className = 'challenged';
+          mark.textContent = '✱';
+          mark.title = 'Allowed by the opponent, not in the dictionary';
+          label.appendChild(mark);
+        }
         const pts = document.createElement('span');
         pts.className = 'pts';
         pts.textContent = `+${w.points}`;
@@ -715,17 +859,76 @@ function renderScores() {
       });
       card.appendChild(ul);
     }
-    wrap.appendChild(card);
-  });
+    return card;
+  }
 }
 
 function showWord(w) {
   game.highlightPath = w.path;
   render();
   $('wordTitle').textContent = w.word.toUpperCase();
-  $('wordMeta').textContent = `${w.points} points · played by ${game.players[w.player].name}`;
+  const who = game.players[w.player] ? game.players[w.player].name : 'unknown';
+  $('wordMeta').textContent = `${w.points} points · played by ${who}`
+    + (w.challenged ? ' · allowed by agreement, not in the dictionary' : '');
   $('wordLookup').href = `https://www.merriam-webster.com/dictionary/${encodeURIComponent(w.word)}`;
   $('wordDialog').showModal();
+  loadDefinition(w.word);
+}
+
+/**
+ * Definitions come from dictionaryapi.dev, a free no-key API. It is a
+ * third-party dependency and needs a connection, so every failure path lands
+ * on the same message rather than an empty panel — the game itself never
+ * depends on it.
+ */
+async function loadDefinition(word) {
+  const box = $('wordDefinition');
+  box.textContent = 'Looking up…';
+
+  const fallback = (message) => {
+    box.textContent = '';
+    const p = document.createElement('span');
+    p.className = 'none';
+    p.textContent = message;
+    box.appendChild(p);
+  };
+
+  let data;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+      { signal: controller.signal },
+    );
+    clearTimeout(timer);
+    if (res.status === 404) return fallback('No dictionary entry for this word.');
+    if (!res.ok) return fallback(`Lookup failed (${res.status}).`);
+    data = await res.json();
+  } catch {
+    return fallback('Could not reach the dictionary — you may be offline.');
+  }
+
+  const meanings = (Array.isArray(data) ? data : [])
+    .flatMap((entry) => entry.meanings || []);
+  if (!meanings.length) return fallback('No definition found.');
+
+  box.textContent = '';
+  for (const meaning of meanings.slice(0, 3)) {
+    if (meaning.partOfSpeech) {
+      const pos = document.createElement('div');
+      pos.className = 'pos';
+      pos.textContent = meaning.partOfSpeech;
+      box.appendChild(pos);
+    }
+    const ol = document.createElement('ol');
+    for (const d of (meaning.definitions || []).slice(0, 3)) {
+      const li = document.createElement('li');
+      li.textContent = d.definition || '';
+      ol.appendChild(li);
+    }
+    box.appendChild(ol);
+  }
 }
 
 $('wordDialog')?.addEventListener('close', () => { game.highlightPath = []; render(); });

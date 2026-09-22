@@ -1,4 +1,4 @@
-const CACHE = 'blockhead-v9';
+const CACHE = 'blockhead-v10';
 
 // Only these are cached aggressively: they're large and they don't change
 // between releases. Everything else goes to the network first.

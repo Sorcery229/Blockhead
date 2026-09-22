@@ -302,6 +302,113 @@ test('tapping another cell restarts the three-tap cycle', () => {
   ok(g.selectedPath.includes(cell), 'new letter should be back in the path');
 });
 
+// --- unknown words, challenged ------------------------------------------
+
+/** Stages the legal-but-unknown word "XOB": X placed at (1,1), traced X-O-B. */
+function stageUnknownWord(g) {
+  const cell = indexOf(1, 1);
+  g.placeLetter('x', cell);
+  g.tapCell(cell);
+  g.tapCell(indexOf(2, 1));
+  g.tapCell(indexOf(2, 0));
+  return cell;
+}
+
+test('an unknown word is offered for challenge rather than refused', () => {
+  const g = newGame();
+  stageUnknownWord(g);
+  eq(g.currentWord, 'xob');
+  ok(!g.inDictionary, 'xob should not be in the lexicon');
+  eq(g.validateShape(), null, 'the move is geometrically legal');
+  const result = g.submit();
+  eq(result.outcome, 'challenge');
+  eq(result.word, 'xob');
+  eq(g.score(0), 0, 'nothing is awarded yet');
+  eq(g.current, 0, 'the turn has not passed');
+});
+
+test('an accepted claim scores and passes the turn', () => {
+  const g = newGame();
+  const cell = stageUnknownWord(g);
+  g.submit();
+  ok(g.claimWord());
+  eq(g.pendingClaim.word, 'xob');
+  eq(g.pendingClaim.by, 0);
+
+  ok(g.resolveClaim(true));
+  eq(g.score(0), 3, 'three letters, three points');
+  eq(g.current, 1, 'turn passes');
+  eq(g.grid[cell], 'x', 'the letter is now on the board');
+  eq(g.players[0].words[0].challenged, true, 'recorded as allowed by agreement');
+  ok(g.usedWords.has('xob'), 'and cannot be played again');
+  eq(g.pendingClaim, null);
+});
+
+test('a refused claim scores nothing and keeps the turn', () => {
+  const g = newGame();
+  const cell = stageUnknownWord(g);
+  g.submit();
+  g.claimWord();
+
+  eq(g.resolveClaim(false), false);
+  eq(g.score(0), 0);
+  eq(g.current, 0, 'the player must try something else');
+  eq(g.grid[cell], '', 'the board is untouched');
+  eq(g.pendingClaim, null);
+  ok(g.lastError && g.lastError.includes("didn't accept"));
+  eq(g.pendingLetter, null, 'the staged letter is cleared');
+});
+
+test('challenging can be switched off', () => {
+  const g = newGame();
+  g.settings.allowChallenge = false;
+  stageUnknownWord(g);
+  const result = g.submit();
+  eq(result.outcome, 'error');
+  ok(result.message.includes("isn't in the dictionary"));
+  eq(g.score(0), 0);
+});
+
+test('a known word still commits directly, with no challenge', () => {
+  const g = newGame();
+  const cell = indexOf(1, 1);
+  g.placeLetter('t', cell);
+  g.tapCell(indexOf(2, 0));
+  g.tapCell(indexOf(2, 1));
+  g.tapCell(cell);
+  const result = g.submit();
+  eq(result.outcome, 'played');
+  eq(result.word, 'bot');
+  eq(g.score(0), 3);
+  eq(g.players[0].words[0].challenged, false);
+  eq(g.pendingClaim, null);
+});
+
+test('submit still refuses illegal shapes before asking about the word', () => {
+  const g = newGame();
+  // A letter placed but the path misses it.
+  g.placeLetter('x', indexOf(1, 1));
+  g.tapCell(indexOf(2, 0));
+  g.tapCell(indexOf(2, 1));
+  g.tapCell(indexOf(2, 2));
+  const result = g.submit();
+  eq(result.outcome, 'error');
+  ok(result.message.includes('run through'));
+});
+
+test('a pending claim survives serialisation', () => {
+  const g = newGame();
+  stageUnknownWord(g);
+  g.submit();
+  g.claimWord();
+
+  const b = new BlockheadGame(dict, { opponent: 'human' }).loadFrom(g.toJSON());
+  eq(b.pendingClaim.word, 'xob');
+  eq(b.pendingClaim.by, 0);
+  ok(b.resolveClaim(true), 'the opponent can accept it on the other device');
+  eq(b.score(0), 3);
+});
+
 test('timeout skip policy passes the turn without points', () => {
   const g = newGame();
   g.settings.turnSeconds = 5;

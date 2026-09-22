@@ -29,23 +29,32 @@
 
   <div class="statusrow">
     <span id="turnLabel" class="turn">Your move</span>
-    <span id="timer" class="timer" hidden></span>
   </div>
   <p id="onlineBar" class="onlinebar" hidden></p>
 
-  <div id="board" class="board" role="grid" aria-label="Game board"></div>
+  <div class="stage">
+    <section class="scorecol" id="scoreLeft"></section>
 
-  <section class="movebar">
-    <div class="wordline">
-      <span id="currentWord" class="word"></span>
-      <span id="wordPoints" class="points"></span>
-      <span id="hint" class="hint">Tap an empty square to add a letter</span>
+    <div class="playfield">
+      <div id="timer" class="timer" hidden><span id="timerValue">0</span><small>sec</small></div>
+      <div id="board" class="board" role="grid" aria-label="Game board"></div>
+
+      <section class="movebar">
+        <div class="wordline">
+          <span id="currentWord" class="word"></span>
+          <span id="wordPoints" class="points"></span>
+          <span id="hint" class="hint">Tap an empty square to add a letter</span>
+        </div>
+        <p id="error" class="error" role="alert" hidden></p>
+        <div class="actions">
+          <button id="cancelBtn" class="btn">Cancel</button>
+          <button id="confirmBtn" class="btn primary">Confirm word</button>
+        </div>
+      </section>
     </div>
-    <p id="error" class="error" role="alert" hidden></p>
-    <div class="actions">
-      <button id="confirmBtn" class="btn primary" disabled>Confirm word</button>
-    </div>
-  </section>
+
+    <section class="scorecol" id="scoreRight"></section>
+  </div>
 
   <section class="scores" id="scores"></section>
 </main>
@@ -53,7 +62,21 @@
 <dialog id="letterDialog" class="sheet">
   <h2>Choose a letter</h2>
   <div id="letterGrid" class="letters"></div>
-  <form method="dialog"><button class="btn wide">Cancel</button></form>
+  <p id="letterChosen" class="chosen">Tap a letter, then Place it.</p>
+  <div class="row">
+    <button id="letterCancelBtn" class="btn">Cancel</button>
+    <button id="letterPlaceBtn" class="btn primary" disabled>Place letter</button>
+  </div>
+</dialog>
+
+<dialog id="claimDialog" class="sheet">
+  <h2 id="claimTitle">Does this word exist?</h2>
+  <p id="claimWord" class="claimword"></p>
+  <p id="claimBody" class="fine"></p>
+  <div class="row">
+    <button id="claimNoBtn" class="btn big">✗</button>
+    <button id="claimYesBtn" class="btn primary big">✓</button>
+  </div>
 </dialog>
 
 <dialog id="settingsDialog" class="sheet">
@@ -93,6 +116,16 @@
         <option value="loseGame">Player loses</option>
       </select>
     </label>
+    <label class="field">
+      <span>Allow unknown words</span>
+      <select name="allowChallenge">
+        <option value="yes">Ask the opponent</option>
+        <option value="no">Reject them outright</option>
+      </select>
+    </label>
+    <p class="fine">With "ask the opponent", a word that isn't in the dictionary
+      isn't refused — you're asked whether it's real, and if you say yes your
+      opponent decides whether to allow it.</p>
     <p class="fine">One point per letter. A word can never be played twice, and
       no square may be used twice in the same word.</p>
     <menu class="row">
@@ -143,7 +176,8 @@
 <dialog id="wordDialog" class="sheet">
   <h2 id="wordTitle"></h2>
   <p id="wordMeta" class="fine"></p>
-  <a id="wordLookup" class="btn wide" target="_blank" rel="noopener">Look up definition ↗</a>
+  <div id="wordDefinition" class="definition">Looking up…</div>
+  <a id="wordLookup" class="btn wide" target="_blank" rel="noopener">Full entry ↗</a>
   <form method="dialog"><button class="btn wide">Close</button></form>
 </dialog>
 
